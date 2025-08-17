@@ -1,6 +1,6 @@
 # Makefile for ollamacode Go project
 
-.PHONY: build clean test run format lint install help
+.PHONY: build clean test test-unit test-service test-integration test-all run format lint install help
 
 # Default target
 All: Build
@@ -16,10 +16,34 @@ clean:
 	rm -rf build/
 	go clean
 
-# Run tests
+# Run all tests (unit tests only, excluding integration)
 test:
-	@echo "Running tests..."
+	@echo "Running unit tests from src directory..."
 	go test -v ./...
+	@echo "Running unit tests from tests directory..."
+	cd tests && go test -v -run "^Test.*[^Integration]$$" ./...
+
+# Run only unit tests (src directory)
+test-unit:
+	@echo "Running unit tests from src directory..."
+	go test -v ./...
+
+# Run only service unit tests (tests directory, excluding integration)
+test-service:
+	@echo "Running service unit tests..."
+	cd tests && go test -v -run "^Test.*[^Integration]$$" ./...
+
+# Run only integration tests (tests directory)  
+test-integration:
+	@echo "Running integration tests..."
+	cd tests && go test -v -run ".*Integration" ./...
+
+# Run all tests including integration tests
+test-all:
+	@echo "Running all unit tests..."
+	go test -v ./...
+	@echo "Running all tests in tests directory..."
+	cd tests && go test -v ./...
 
 # Run the application
 run:
@@ -45,11 +69,15 @@ install:
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  Build   - Build the project"
-	@echo "  Clean   - Clean build artifacts"
-	@echo "  Test    - Run tests"
-	@echo "  Run     - Run the application"
-	@echo "  Format  - Format source code"
-	@echo "  Lint    - Lint source code"
-	@echo "  Install - Install dependencies"
-	@echo "  Help    - Show this help message"
+	@echo "  build            - Build the project"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  test             - Run unit tests only (excluding integration)"
+	@echo "  test-unit        - Run only unit tests (src directory)"
+	@echo "  test-service     - Run only service unit tests (tests directory, no integration)"
+	@echo "  test-integration - Run only integration tests (tests directory)"
+	@echo "  test-all         - Run all tests including integration tests"
+	@echo "  run              - Run the application"
+	@echo "  format           - Format source code"
+	@echo "  lint             - Lint source code"
+	@echo "  install          - Install dependencies"
+	@echo "  help             - Show this help message"
