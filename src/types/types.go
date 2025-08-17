@@ -1,6 +1,7 @@
 package types
 
 import (
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -65,10 +66,44 @@ type RequestToolListData struct {
 	CreateUUID uuid.UUID
 }
 
-type ToolListUpdate struct {
+type ToolListUpdateData struct {
 	List []*mcp.Tool
 }
 
-type ResponseData struct {
-	Message api.Message
+type StreamChunk struct {
+	Content string
+	IsComplete bool
 }
+
+type StreamStartData struct {
+	RequestUUID uuid.UUID
+}
+
+type StreamChunkData struct {
+	RequestUUID uuid.UUID
+	Chunk StreamChunk
+}
+
+type StreamCompleteData struct {
+	RequestUUID uuid.UUID
+	FinalMessage api.Message
+	TotalChunks int
+}
+
+type SteramErrorData struct {
+	RequestUUID uuid.UUID
+	Error error
+	ChunkCount int
+}
+
+type StreamCancelData struct {
+	RequestUUID uuid.UUID
+}
+
+type ToolCallData struct {
+	RequestUUID uuid.UUID
+	ToolName string
+	Paramters map[string]any
+}
+
+

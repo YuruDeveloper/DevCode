@@ -9,7 +9,7 @@ import (
 
 func NewMessageService(bus *events.EventBus) *MessageService{
 	service := &MessageService { Bus: bus }
-	bus.Subscribe(events.LLMResponseEvent,service)
+	bus.Subscribe(events.StreamStartEvent,service)
 	return service
 }
 
@@ -18,8 +18,9 @@ type MessageService struct {
 }
 
 func (instance *MessageService) HandleEvent(event events.Event) {
-	if event.Type == events.LLMResponseEvent {
-		instance.ParingMessage(event.Data.(types.ResponseData).Message)
+	switch event.Type {
+		case events.StreamStartEvent:
+			
 	}
 }
 

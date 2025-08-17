@@ -20,7 +20,11 @@ const (
 	UpdateEnvionmentEvent
 	RequestToolListEvent
 	UpdateToolListEvent
-	LLMResponseEvent
+	StreamStartEvent
+	StreramChunkEvnet
+	StreamCompleteEvent
+	StreamErrorEvent
+	StreamCancelEvent
 )
 
 

@@ -73,7 +73,7 @@ func (instance *McpService) PublishToolList() {
 		events.Event{
 			Type: events.UpdateToolListEvent,
 			Timestamp: time.Now(),
-			Data: types.ToolListUpdate {
+			Data: types.ToolListUpdateData {
 				List: mcpToolList,
 			},
 			Source: types.McpService,
