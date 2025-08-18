@@ -7,16 +7,16 @@ import (
 
 func NewEventBus() *EventBus {
 	return &EventBus{
-		Subscribers: make(map[EventType][]Subsciber),
+		Subscribers: make(map[EventType][]Subscriber),
 	}
 }
 
-type EventBus struct{
-	Subscribers map[EventType][]Subsciber
-	BusMutex sync.RWMutex
+type EventBus struct {
+	Subscribers map[EventType][]Subscriber
+	BusMutex    sync.RWMutex
 }
 
-func (instance *EventBus) Subscribe(eventType EventType,subsciber Subsciber) {
+func (instance *EventBus) Subscribe(eventType EventType, subsciber Subscriber) {
 	instance.BusMutex.Lock()
 	defer instance.BusMutex.Unlock()
 
@@ -27,9 +27,9 @@ func (instance *EventBus) UnSubscribe(eventType EventType, subscriberID types.So
 	instance.BusMutex.Lock()
 	defer instance.BusMutex.Unlock()
 
-	for index , subbscriber := range instance.Subscribers[eventType] {
+	for index, subbscriber := range instance.Subscribers[eventType] {
 		if subbscriber.GetID() == subscriberID {
-			instance.Subscribers[eventType] = append(instance.Subscribers[eventType][:index],instance.Subscribers[eventType][index + 1:]...)
+			instance.Subscribers[eventType] = append(instance.Subscribers[eventType][:index], instance.Subscribers[eventType][index+1:]...)
 			break
 		}
 	}
@@ -38,10 +38,9 @@ func (instance *EventBus) UnSubscribe(eventType EventType, subscriberID types.So
 func (instance *EventBus) Publish(event Event) {
 	instance.BusMutex.RLock()
 	defer instance.BusMutex.RUnlock()
-	for _ , subscriber := range instance.Subscribers[event.Type] {
-		go func (subsciber Subsciber)  {
-			subsciber.HandleEvent(event);
+	for _, subscriber := range instance.Subscribers[event.Type] {
+		go func(subsciber Subscriber) {
+			subsciber.HandleEvent(event)
 		}(subscriber)
 	}
 }
-

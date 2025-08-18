@@ -1,23 +1,23 @@
 package read
 
 import (
+	"UniCode/src/tools"
 	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"os"
 	"strings"
-	"UniCode/src/tools"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type ErrorCode string
 
 const (
-	FileNotFound = "FILE_NOT_FOUND"
+	FileNotFound     = "FILE_NOT_FOUND"
 	PermissionDenied = "PERMISSION_DENIED"
-	InvalidPath = "INVALID_PATH"
-	ReadDescription = `Reads a file from the local filesystem. You can access any file directly by
+	InvalidPath      = "INVALID_PATH"
+	ReadDescription  = `Reads a file from the local filesystem. You can access any file directly by
    using this tool.\nAssume this tool is able to read all files on the machine. If the User
   provides a path to a file assume that path is valid. It is okay to read a file that does not
   exist; an error will be returned.\n\nUsage:\n- The file_path parameter must be an absolute
@@ -42,38 +42,38 @@ const (
 
 type Input struct {
 	FilePath string `json:"file_path" jsonschema:"description:The absolute path to the file to read"`
-	Offset int `json:"offset" jsonschema:"description:The line number to start reading from. Only provide if the file is too large to read at once"`
-	Limit int `json:"limit" jsonschema:"description:The number of lines to read. Only provide if the file is too large to read at once"`
+	Offset   int    `json:"offset" jsonschema:"description:The line number to start reading from. Only provide if the file is too large to read at once"`
+	Limit    int    `json:"limit" jsonschema:"description:The number of lines to read. Only provide if the file is too large to read at once"`
 }
 
 type Success struct {
-	Success bool `json:"success"`
-	Text string `json:"content"` 
-	TotalLines int `json:"total_lines"`
-	LinesRead int `json:"lines_read"`
+	Success    bool   `json:"success"`
+	Text       string `json:"content"`
+	TotalLines int    `json:"total_lines"`
+	LinesRead  int    `json:"lines_read"`
 }
 
-func (instance Success) Content() (*mcp.TextContent , error) {
-	jsonText , err := json.Marshal(instance)
+func (instance Success) Content() (*mcp.TextContent, error) {
+	jsonText, err := json.Marshal(instance)
 	return &mcp.TextContent{
 		Text: string(jsonText),
-	} , err
+	}, err
 }
 
 type Fail struct {
-	Success bool `json:"success"`
-	Error string `json:"error"`
+	Success   bool      `json:"success"`
+	Error     string    `json:"error"`
 	ErrorCode ErrorCode `json:"error_code"`
 }
 
-func (instance Fail) Content() (*mcp.TextContent  , error) {
-	jsonText , err := json.Marshal(instance)
+func (instance Fail) Content() (*mcp.TextContent, error) {
+	jsonText, err := json.Marshal(instance)
 	return &mcp.TextContent{
 		Text: string(jsonText),
-	} , err
+	}, err
 }
 
-type Tool struct{
+type Tool struct {
 }
 
 func (*Tool) Name() string {
@@ -84,43 +84,44 @@ func (instance *Tool) Description() string {
 	return ReadDescription
 }
 
-func (instance *Tool) Handler() mcp.ToolHandlerFor[Input,any] {
+func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
 	return func(ctx context.Context, session *mcp.ServerSession, params *mcp.CallToolParamsFor[Input]) (*mcp.CallToolResultFor[any], error) {
 		input := params.Arguments
+		fmt.Printf("read tool called %s",input.FilePath)
 		if input.FilePath == "" {
 			return tools.TextReturn(Fail{
-				Success: false,
-				Error: "Invalid path format: " + input.FilePath,
+				Success:   false,
+				Error:     "Invalid path format: " + input.FilePath,
 				ErrorCode: InvalidPath,
 			})
 		}
-		if _ , err := os.Stat(input.FilePath); os.IsNotExist(err) {
+		if _, err := os.Stat(input.FilePath); os.IsNotExist(err) {
 			return tools.TextReturn(Fail{
-				Success: false,
-				Error: "File not found: " + input.FilePath,
+				Success:   false,
+				Error:     "File not found: " + input.FilePath,
 				ErrorCode: FileNotFound,
-			}) 
+			})
 		}
-		file , err := os.Open(input.FilePath)
+		file, err := os.Open(input.FilePath)
 		if err != nil {
 			if os.IsPermission(err) {
-				return tools.TextReturn( Fail {
-					Success: false,
-					Error: "Permission denied: " + input.FilePath,
+				return tools.TextReturn(Fail{
+					Success:   false,
+					Error:     "Permission denied: " + input.FilePath,
 					ErrorCode: PermissionDenied,
-				}) 
+				})
 			}
-			return tools.TextReturn( Fail {
-				Success: false,
-				Error: "Invalid path format: "  + input.FilePath,
+			return tools.TextReturn(Fail{
+				Success:   false,
+				Error:     "Invalid path format: " + input.FilePath,
 				ErrorCode: InvalidPath,
-			}) 
+			})
 		}
 		defer file.Close()
 		scanner := bufio.NewScanner(file)
 		var content strings.Builder
 		totalLines := 0
-		readLines := 0 
+		readLines := 0
 		for scanner.Scan() {
 			totalLines++
 			if totalLines < input.Offset {
@@ -129,17 +130,17 @@ func (instance *Tool) Handler() mcp.ToolHandlerFor[Input,any] {
 			if input.Limit > 0 && readLines > input.Limit {
 				continue
 			}
-			fmt.Fprintf(&content,"%6d\t%s\n",totalLines,scanner.Text())
+			fmt.Fprintf(&content, "%6d\t%s\n", totalLines, scanner.Text())
 			readLines++
 			if totalLines == 2000 {
 				break
 			}
 		}
-		return tools.TextReturn(Success {
-			Success: true,
-			Text: content.String(),
+		return tools.TextReturn(Success{
+			Success:    true,
+			Text:       content.String(),
 			TotalLines: totalLines,
-			LinesRead: readLines,
-		}) 	
+			LinesRead:  readLines,
+		})
 	}
 }

@@ -3,13 +3,14 @@ package service
 import (
 	"UniCode/src/events"
 	"UniCode/src/types"
-
-	"github.com/ollama/ollama/api"
 )
 
-func NewMessageService(bus *events.EventBus) *MessageService{
-	service := &MessageService { Bus: bus }
-	bus.Subscribe(events.StreamStartEvent,service)
+func NewMessageService(bus *events.EventBus) *MessageService {
+	service := &MessageService{Bus: bus}
+	bus.Subscribe(events.StreamStartEvent, service)
+	bus.Subscribe(events.StreamChunkEvent, service)
+	bus.Subscribe(events.StreamCompleteEvent, service)
+	bus.Subscribe(events.StreamErrorEvent, service)
 	return service
 }
 
@@ -19,8 +20,25 @@ type MessageService struct {
 
 func (instance *MessageService) HandleEvent(event events.Event) {
 	switch event.Type {
-		case events.StreamStartEvent:
-			
+	case events.StreamStartEvent:
+		PublishEvent(instance.Bus, events.StreamChunkParsedEvent, types.ParsedChunkData{
+			RequestUUID: event.Data.(types.StreamStartData).RequestUUID,
+			Content:     "",
+			IsComplete:  false,
+		}, types.MessageService)
+	case events.StreamChunkEvent:
+		instance.ParingMessage(event.Data.(types.StreamChunkData))
+	case events.StreamErrorEvent:
+		PublishEvent(instance.Bus, events.StreamChunkParsedErrorEvent, types.ParsedChunkErrorData{
+			RequestUUID: event.Data.(types.SteramErrorData).RequestUUID,
+			Error:       event.Data.(types.SteramErrorData).Error.Error(),
+		}, types.MessageService)
+	case events.StreamCompleteEvent:
+		PublishEvent(instance.Bus, events.StreamChunkParsedEvent, types.ParsedChunkData{
+			RequestUUID: event.Data.(types.StreamCompleteData).RequestUUID,
+			Content:     event.Data.(types.StreamCompleteData).FinalMessage.Content,
+			IsComplete:  event.Data.(types.StreamCompleteData).IsComplete,
+		}, types.MessageService)
 	}
 }
 
@@ -28,5 +46,10 @@ func (instance *MessageService) GetID() types.Source {
 	return types.MessageService
 }
 
-func (instance *MessageService) ParingMessage(message api.Message) {
+func (instance *MessageService) ParingMessage(data types.StreamChunkData) {
+	PublishEvent(instance.Bus, events.StreamChunkParsedEvent, types.ParsedChunkData{
+		RequestUUID: data.RequestUUID,
+		Content:     data.Content,
+		IsComplete:  false,
+	}, types.MessageService)
 }

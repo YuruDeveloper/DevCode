@@ -4,65 +4,22 @@ import (
 	"UniCode/src/events"
 	"UniCode/src/service"
 	"UniCode/src/types"
-	"net/http"
-	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/spf13/viper"
+	"github.com/ollama/ollama/api"
 )
 
-// 통합 테스트를 위한 설정
-func setupIntegrationTest() {
-	viper.Set("ollama.url", "http://localhost:11434")
-	viper.Set("ollama.model", "gpt-oss:20b") // env.toml과 동일한 모델 사용
-	viper.Set("prompt.system", "/tmp/integration_test_system_prompt.md")
-	
-	// 테스트용 시스템 프롬프트 파일 생성
-	systemPrompt := "You are a helpful assistant. Respond concisely."
-	err := os.WriteFile("/tmp/integration_test_system_prompt.md", []byte(systemPrompt), 0644)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func cleanupIntegrationTest() {
-	os.Remove("/tmp/integration_test_system_prompt.md")
-}
-
-// Ollama 서버가 실행 중인지 확인하는 헬퍼 함수
-func isOllamaRunning() bool {
-	// curl로 직접 확인
-	timeout := time.After(2 * time.Second)
-	done := make(chan bool)
-	
-	go func() {
-		// HTTP GET 요청으로 간단히 확인
-		resp, err := http.Get("http://localhost:11434/api/tags")
-		if err == nil {
-			resp.Body.Close()
-			done <- true
-		} else {
-			done <- false
-		}
-	}()
-	
-	select {
-	case result := <-done:
-		return result
-	case <-timeout:
-		return false
-	}
-}
 
 func TestOllamaService_CallApi_Integration(t *testing.T) {
-	if !isOllamaRunning() {
+	if !IsOllamaRunning() {
 		t.Skip("Ollama 서버가 실행되지 않아 통합 테스트를 건너뜁니다")
 	}
 
-	setupIntegrationTest()
-	defer cleanupIntegrationTest()
+	SetupIntegrationTest()
+	defer CleanupTestConfig()
 
 	bus := events.NewEventBus()
 	ollamaService := service.NewOllamaService(bus)
@@ -78,7 +35,7 @@ func TestOllamaService_CallApi_Integration(t *testing.T) {
 
 	// 스트림 관련 이벤트들 구독
 	bus.Subscribe(events.StreamStartEvent, testHandler)
-	bus.Subscribe(events.StreramChunkEvnet, testHandler)
+	bus.Subscribe(events.StreamChunkEvent, testHandler)
 	bus.Subscribe(events.StreamCompleteEvent, testHandler)
 	bus.Subscribe(events.StreamErrorEvent, testHandler)
 
@@ -120,7 +77,7 @@ func TestOllamaService_CallApi_Integration(t *testing.T) {
 		switch event.Type {
 		case events.StreamStartEvent:
 			hasStreamStart = true
-		case events.StreramChunkEvnet:
+		case events.StreamChunkEvent:
 			hasStreamChunk = true
 		case events.StreamCompleteEvent:
 			hasStreamComplete = true
@@ -143,74 +100,44 @@ func TestOllamaService_CallApi_Integration(t *testing.T) {
 }
 
 func TestOllamaService_ToolCall_Integration(t *testing.T) {
-	if !isOllamaRunning() {
+	if !IsOllamaRunning() {
 		t.Skip("Ollama 서버가 실행되지 않아 통합 테스트를 건너뜁니다")
 	}
 
-	setupIntegrationTest()
-	defer cleanupIntegrationTest()
+	SetupIntegrationTest()
+	defer CleanupTestConfig()
 
+	// Given
 	bus := events.NewEventBus()
 	ollamaService := service.NewOllamaService(bus)
+	testTool := CreateTestTool()
+	ollamaService.Tools = []api.Tool{testTool}
 
-	// 도구 호출 이벤트를 받을 핸들러
-	var toolCallEvents []events.Event
-	var streamEvents []events.Event
-	toolHandler := &TestEventHandler{
-		HandleFunc: func(event events.Event) {
-			switch event.Type {
-			case events.ToolCallEvent:
-				toolCallEvents = append(toolCallEvents, event)
-			case events.StreamCompleteEvent:
-				streamEvents = append(streamEvents, event)
-				// StreamCompleteEvent에서 ToolCall 확인
-				if data, ok := event.Data.(types.StreamCompleteData); ok {
-					if len(data.FinalMessage.ToolCalls) > 0 {
-						t.Logf("응답에 도구 호출이 포함되어 있습니다: %d개", len(data.FinalMessage.ToolCalls))
-						for i, call := range data.FinalMessage.ToolCalls {
-							t.Logf("도구 호출 %d: %s, 매개변수: %+v", i+1, call.Function.Name, call.Function.Arguments)
-						}
-					}
-				}
-			}
-		},
-		ID: TestService,
-	}
-
+	// 도구 호출 이벤트 핸들러 설정
+	toolHandler := NewToolCallTestHandler(t)
 	bus.Subscribe(events.ToolCallEvent, toolHandler)
 	bus.Subscribe(events.StreamCompleteEvent, toolHandler)
 
-	// 단순한 메시지로 테스트 (도구 없이)
-	ollamaService.UpdateUserInput("간단한 계산을 해주세요: 2 + 2는 무엇인가요?")
-
-	// API 호출
+	// When
+	testMessage := "현재 시간은 몇시인가요? 사용가능한 도구를 활용해서 대답하세요"
+	ollamaService.UpdateUserInput(testMessage)
+	
 	requestUUID := uuid.New()
 	ollamaService.CallApi(requestUUID)
 
-	// 응답 완료를 기다림
-	timeout := time.After(30 * time.Second)
-	
-	for {
-		select {
-		case <-timeout:
-			t.Error("API 응답 시간 초과")
-			return
-		case <-time.After(200 * time.Millisecond):
-			if len(streamEvents) > 0 {
-				t.Logf("API 호출이 성공적으로 완료되었습니다")
-				return
-			}
-		}
+	// Then
+	if WaitForToolCallCompletion(t, toolHandler, TestTimeout) {
+		ValidateToolCallResults(t, toolHandler)
 	}
 }
 
 func TestOllamaService_StreamCancel_Integration(t *testing.T) {
-	if !isOllamaRunning() {
+	if !IsOllamaRunning() {
 		t.Skip("Ollama 서버가 실행되지 않아 통합 테스트를 건너뜁니다")
 	}
 
-	setupIntegrationTest()
-	defer cleanupIntegrationTest()
+	SetupIntegrationTest()
+	defer CleanupTestConfig()
 
 	bus := events.NewEventBus()
 	ollamaService := service.NewOllamaService(bus)
@@ -225,7 +152,7 @@ func TestOllamaService_StreamCancel_Integration(t *testing.T) {
 	}
 
 	bus.Subscribe(events.StreamStartEvent, testHandler)
-	bus.Subscribe(events.StreramChunkEvnet, testHandler)
+	bus.Subscribe(events.StreamChunkEvent, testHandler)
 	bus.Subscribe(events.StreamCompleteEvent, testHandler)
 	bus.Subscribe(events.StreamErrorEvent, testHandler)
 
@@ -280,12 +207,12 @@ func TestOllamaService_StreamCancel_Integration(t *testing.T) {
 }
 
 func TestOllamaService_MultipleRequests_Integration(t *testing.T) {
-	if !isOllamaRunning() {
+	if !IsOllamaRunning() {
 		t.Skip("Ollama 서버가 실행되지 않아 통합 테스트를 건너뜁니다")
 	}
 
-	setupIntegrationTest()
-	defer cleanupIntegrationTest()
+	SetupIntegrationTest()
+	defer CleanupTestConfig()
 
 	bus := events.NewEventBus()
 	ollamaService := service.NewOllamaService(bus)
@@ -371,3 +298,169 @@ func TestOllamaService_MultipleRequests_Integration(t *testing.T) {
 
 	t.Logf("다중 요청 테스트 성공: %d개 요청 모두 완료", len(requestUUIDs))
 }
+
+func TestOllamaService_ConsecutiveQuestions_Integration(t *testing.T) {
+	if !IsOllamaRunning() {
+		t.Skip("Ollama 서버가 실행되지 않아 통합 테스트를 건너뜁니다")
+	}
+
+	SetupIntegrationTest()
+	defer CleanupTestConfig()
+
+	bus := events.NewEventBus()
+	ollamaService := service.NewOllamaService(bus)
+
+	// 스트림 이벤트를 받을 핸들러
+	var allEvents []events.Event
+	testHandler := &TestEventHandler{
+		HandleFunc: func(event events.Event) {
+			allEvents = append(allEvents, event)
+		},
+		ID: TestService,
+	}
+
+	bus.Subscribe(events.StreamStartEvent, testHandler)
+	bus.Subscribe(events.StreamChunkEvent, testHandler)
+	bus.Subscribe(events.StreamCompleteEvent, testHandler)
+	bus.Subscribe(events.StreamErrorEvent, testHandler)
+
+	// 첫 번째 질문
+	firstQuestion := "안녕하세요! 저는 김철수입니다."
+	ollamaService.UpdateUserInput(firstQuestion)
+
+	// 첫 번째 API 호출
+	firstRequestUUID := uuid.New()
+	ollamaService.CallApi(firstRequestUUID)
+
+	// 첫 번째 응답이 완료될 때까지 대기
+	timeout := time.After(30 * time.Second)
+	firstCompleted := false
+	
+	for !firstCompleted {
+		select {
+		case <-timeout:
+			t.Fatal("첫 번째 질문의 응답이 시간 내에 완료되지 않았습니다")
+		case <-time.After(100 * time.Millisecond):
+			for _, event := range allEvents {
+				if event.Type == events.StreamCompleteEvent {
+					if data, ok := event.Data.(types.StreamCompleteData); ok {
+						if data.RequestUUID == firstRequestUUID {
+							firstCompleted = true
+							break
+						}
+					}
+				}
+				if event.Type == events.StreamErrorEvent {
+					if data, ok := event.Data.(types.SteramErrorData); ok {
+						if data.RequestUUID == firstRequestUUID {
+							t.Fatalf("첫 번째 질문 API 호출 에러: %v", data.Error)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 첫 번째 응답의 내용을 수집
+	var firstResponseContent string
+	for _, event := range allEvents {
+		if event.Type == events.StreamChunkEvent {
+			if data, ok := event.Data.(types.StreamChunkData); ok {
+				if data.RequestUUID == firstRequestUUID {
+					firstResponseContent += data.Content
+				}
+			}
+		}
+	}
+	
+	if firstResponseContent == "" {
+		t.Error("첫 번째 응답 내용이 비어있습니다")
+	}
+
+	if len(firstResponseContent) > 100 {
+		t.Logf("첫 번째 응답: %s...", firstResponseContent[:100])
+	} else {
+		t.Logf("첫 번째 응답: %s", firstResponseContent)
+	}
+
+	// 잠시 대기 후 두 번째 질문 (이전 대화를 참조)
+	time.Sleep(1 * time.Second)
+	
+	secondQuestion := "제 이름이 뭐라고 했죠?"
+	ollamaService.UpdateUserInput(secondQuestion)
+
+	// 두 번째 API 호출
+	secondRequestUUID := uuid.New()
+	ollamaService.CallApi(secondRequestUUID)
+
+	// 두 번째 응답이 완료될 때까지 대기
+	timeout2 := time.After(30 * time.Second)
+	secondCompleted := false
+	
+	for !secondCompleted {
+		select {
+		case <-timeout2:
+			t.Fatal("두 번째 질문의 응답이 시간 내에 완료되지 않았습니다")
+		case <-time.After(100 * time.Millisecond):
+			for _, event := range allEvents {
+				if event.Type == events.StreamCompleteEvent {
+					if data, ok := event.Data.(types.StreamCompleteData); ok {
+						if data.RequestUUID == secondRequestUUID {
+							secondCompleted = true
+							break
+						}
+					}
+				}
+				if event.Type == events.StreamErrorEvent {
+					if data, ok := event.Data.(types.SteramErrorData); ok {
+						if data.RequestUUID == secondRequestUUID {
+							t.Fatalf("두 번째 질문 API 호출 에러: %v", data.Error)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 두 번째 응답의 내용을 수집
+	var secondResponseContent string
+	for _, event := range allEvents {
+		if event.Type == events.StreamChunkEvent {
+			if data, ok := event.Data.(types.StreamChunkData); ok {
+				if data.RequestUUID == secondRequestUUID {
+					secondResponseContent += data.Content
+				}
+			}
+		}
+	}
+	
+	if secondResponseContent == "" {
+		t.Error("두 번째 응답 내용이 비어있습니다")
+	}
+
+	if len(secondResponseContent) > 100 {
+		t.Logf("두 번째 응답: %s...", secondResponseContent[:100])
+	} else {
+		t.Logf("두 번째 응답: %s", secondResponseContent)
+	}
+
+	// 두 번째 응답에 이름 관련 키워드가 포함되어 있는지 확인 (컨텍스트가 유지되었는지)
+	nameIndicators := []string{"김철수", "철수", "이름", "name"}
+	contentLower := strings.ToLower(secondResponseContent)
+	contextFound := false
+	
+	for _, indicator := range nameIndicators {
+		if strings.Contains(contentLower, strings.ToLower(indicator)) {
+			contextFound = true
+			break
+		}
+	}
+	
+	if !contextFound {
+		t.Logf("경고: 두 번째 응답에서 이전 대화 컨텍스트가 명확하게 반영되지 않았을 수 있습니다")
+		t.Logf("두 번째 응답 전체: %s", secondResponseContent)
+	}
+
+	t.Logf("연속 질문-답변 테스트 성공: 두 질문 모두 완료")
+}
+

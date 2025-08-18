@@ -2,7 +2,6 @@ package tests
 
 import (
 	"UniCode/src/events"
-	"UniCode/src/service"
 	"UniCode/src/types"
 	"testing"
 	"time"
@@ -10,94 +9,50 @@ import (
 	"github.com/google/uuid"
 )
 
-const TestService types.Source = 999
-
-// TestEventHandler is a test implementation of EventHandler interface
-type TestEventHandler struct {
-	HandleFunc func(events.Event)
-	ID         types.Source
-}
-
-func (handler *TestEventHandler) HandleEvent(event events.Event) {
-	if handler.HandleFunc != nil {
-		handler.HandleFunc(event)
-	}
-}
-
-func (handler *TestEventHandler) GetID() types.Source {
-	return handler.ID
-}
-
-
-// SetupEnvironmentService creates a new EnvironmentService for testing
-func SetupEnvironmentService() (*service.EnvironmentService, *events.EventBus) {
-	EventBus := events.NewEventBus()
-	EnvironmentService := service.NewEnvironmentService(EventBus)
-	return EnvironmentService, EventBus
-}
-
-// SetupTestEventHandler creates a test event handler
-func SetupTestEventHandler(EventBus *events.EventBus, EventType events.EventType) (*TestEventHandler, *events.Event) {
-	var ReceivedEvent *events.Event
-	TestHandler := &TestEventHandler{
-		HandleFunc: func(event events.Event) {
-			if event.Type == EventType {
-				ReceivedEvent = &event
-			}
-		},
-		ID: TestService,
-	}
-	EventBus.Subscribe(EventType, TestHandler)
-	return TestHandler, ReceivedEvent
-}
-
 func TestNewEnvironmentService_ShouldCreateServiceSuccessfully(t *testing.T) {
-	// Given
-	EventBus := events.NewEventBus()
-
-	// When
-	EnvironmentService := service.NewEnvironmentService(EventBus)
+	// Given & When
+	environmentService, eventBus := SetupEnvironmentService()
 
 	// Then
-	if EnvironmentService == nil {
+	if environmentService == nil {
 		t.Fatal("NewEnvironmentService는 nil을 반환하면 안됩니다")
 	}
 
-	if EnvironmentService.Bus != EventBus {
+	if environmentService.Bus != eventBus {
 		t.Error("EnvironmentService의 Bus가 올바르게 설정되지 않았습니다")
 	}
 }
 
 func TestEnvironmentService_GetID_ShouldReturnCorrectServiceID(t *testing.T) {
 	// Given
-	EnvironmentService, _ := SetupEnvironmentService()
-	ExpectedID := types.EnvironmentService
+	environmentService, _ := SetupEnvironmentService()
+	expectedID := types.EnvironmentService
 
 	// When
-	ActualID := EnvironmentService.GetID()
+	actualID := environmentService.GetID()
 
 	// Then
-	if int(ActualID) != int(ExpectedID) {
-		t.Errorf("GetID() = %d, 예상값 %d", int(ActualID), int(ExpectedID))
+	if int(actualID) != int(expectedID) {
+		t.Errorf("GetID() = %d, 예상값 %d", int(actualID), int(expectedID))
 	}
 }
 
 func TestEnvironmentService_HandleEvent_ShouldPublishEnvironmentUpdateEvent(t *testing.T) {
 	// Given
-	EnvironmentService, EventBus := SetupEnvironmentService()
-	var ReceivedEvent *events.Event
+	environmentService, eventBus := SetupEnvironmentService()
+	var receivedEvent *events.Event
 	
-	TestHandler := &TestEventHandler{
+	testHandler := &TestEventHandler{
 		HandleFunc: func(event events.Event) {
 			if event.Type == events.UpdateEnvionmentEvent {
-				ReceivedEvent = &event
+				receivedEvent = &event
 			}
 		},
 		ID: TestService,
 	}
-	EventBus.Subscribe(events.UpdateEnvionmentEvent, TestHandler)
+	eventBus.Subscribe(events.UpdateEnvionmentEvent, testHandler)
 
-	RequestEvent := events.Event{
+	requestEvent := events.Event{
 		Type: events.RequestEnvionmentvent,
 		Data: types.EnviromentRequestData{
 			CreateUUID: uuid.New(),
@@ -107,40 +62,41 @@ func TestEnvironmentService_HandleEvent_ShouldPublishEnvironmentUpdateEvent(t *t
 	}
 
 	// When
-	EnvironmentService.HandleEvent(RequestEvent)
-	time.Sleep(50 * time.Millisecond) // Wait for async processing
+	environmentService.HandleEvent(requestEvent)
+	time.Sleep(AsyncWaitTime)
 
 	// Then
-	if ReceivedEvent == nil {
+	if receivedEvent == nil {
 		t.Error("UpdateEnvionmentEvent가 발행되지 않았습니다")
 		return
 	}
 
-	AssertEnvironmentUpdateEventIsValid(t, *ReceivedEvent)
+	assertEnvironmentUpdateEventIsValid(t, *receivedEvent)
 }
 
-// AssertEnvironmentUpdateEventIsValid validates environment update event data
-func AssertEnvironmentUpdateEventIsValid(t *testing.T, event events.Event) {
-	EnvironmentData, ok := event.Data.(types.EnviromentUpdateData)
+// assertEnvironmentUpdateEventIsValid validates environment update event data
+func assertEnvironmentUpdateEventIsValid(t *testing.T, event events.Event) {
+	environmentData, ok := event.Data.(types.EnviromentUpdateData)
 	if !ok {
 		t.Error("이벤트 데이터 타입이 올바르지 않습니다")
 		return
 	}
 
-	if EnvironmentData.CreateUUID == uuid.Nil {
+	if environmentData.CreateUUID.String() == "00000000-0000-0000-0000-000000000000" {
 		t.Error("CreateUUID가 설정되지 않았습니다")
 	}
 
-	if EnvironmentData.Cwd == "" {
+	if environmentData.Cwd == "" {
 		t.Error("현재 작업 디렉토리가 설정되지 않았습니다")
 	}
 
-	if EnvironmentData.OS == "" {
+	if environmentData.OS == "" {
 		t.Error("OS 정보가 설정되지 않았습니다")
 	}
 
-	if EnvironmentData.TodayDate == "" {
+	if environmentData.TodayDate == "" {
 		t.Error("오늘 날짜가 설정되지 않았습니다")
 	}
 }
+
 

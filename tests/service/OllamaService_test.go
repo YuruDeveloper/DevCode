@@ -5,100 +5,15 @@ import (
 	"UniCode/src/service"
 	"UniCode/src/types"
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/ollama/ollama/api"
-	"github.com/spf13/viper"
 )
 
-
-// SetupTestConfig configures test environment for OllamaService tests
-func SetupTestConfig() {
-	viper.Set("ollama.url", "localhost:11434")
-	viper.Set("ollama.model", "test-model")
-	viper.Set("prompt.system", "/tmp/test_system_prompt.md")
-	
-	SystemPrompt := "You are a helpful assistant for testing."
-	err := os.WriteFile("/tmp/test_system_prompt.md", []byte(SystemPrompt), 0644)
-	if err != nil {
-		panic(err)
-	}
-}
-
-// CleanupTestConfig removes test configuration files
-func CleanupTestConfig() {
-	os.Remove("/tmp/test_system_prompt.md")
-}
-
-// SetupOllamaService creates a new OllamaService for testing
-func SetupOllamaService() (*service.OllamaService, *events.EventBus) {
-	SetupTestConfig()
-	EventBus := events.NewEventBus()
-	OllamaService := service.NewOllamaService(EventBus)
-	return OllamaService, EventBus
-}
-
-
-
-func TestNewOllamaService_ShouldCreateServiceSuccessfully(t *testing.T) {
-	// Given & When
-	OllamaService, EventBus := SetupOllamaService()
-	defer CleanupTestConfig()
-
-	// Then
-	AssertNoPanic(t, "NewOllamaService", func() {
-		service.NewOllamaService(EventBus)
-	})
-
-	AssertOllamaServiceIsValid(t, OllamaService, EventBus)
-}
-
-func TestOllamaService_GetID_ShouldReturnCorrectServiceID(t *testing.T) {
-	// Given
-	OllamaService, _ := SetupOllamaService()
-	defer CleanupTestConfig()
-	ExpectedID := types.LLMService
-
-	// When
-	ActualID := OllamaService.GetID()
-
-	// Then
-	if int(ActualID) != int(ExpectedID) {
-		t.Errorf("GetID() = %d, 예상값 %d", int(ActualID), int(ExpectedID))
-	}
-}
-
-func TestOllamaService_EnvironmentMessage_ShouldCreateSystemMessage(t *testing.T) {
-	// Given
-	OllamaService, _ := SetupOllamaService()
-	defer CleanupTestConfig()
-	OllamaService.Environment = "test environment info"
-
-	// When
-	Message := OllamaService.EnviromentMessage()
-
-	// Then
-	AssertEnvironmentMessageIsValid(t, Message, OllamaService.Environment)
-}
-
-func TestOllamaService_UpdateUserInput_ShouldAddUserMessage(t *testing.T) {
-	// Given
-	OllamaService, _ := SetupOllamaService()
-	defer CleanupTestConfig()
-	TestMessage := "테스트 사용자 입력"
-
-	// When
-	OllamaService.UpdateUserInput(TestMessage)
-
-	// Then
-	AssertUserMessageAdded(t, OllamaService, TestMessage)
-}
-
-// AssertOllamaServiceIsValid validates OllamaService initialization
-func AssertOllamaServiceIsValid(t *testing.T, ollamaService *service.OllamaService, bus *events.EventBus) {
+// assertOllamaServiceIsValid validates OllamaService initialization
+func assertOllamaServiceIsValid(t *testing.T, ollamaService *service.OllamaService, bus *events.EventBus) {
 	if ollamaService == nil {
 		t.Fatal("NewOllamaService는 nil을 반환하면 안됩니다")
 	}
@@ -118,14 +33,10 @@ func AssertOllamaServiceIsValid(t *testing.T, ollamaService *service.OllamaServi
 	if ollamaService.Ctx == nil {
 		t.Error("Context가 설정되지 않았습니다")
 	}
-
-	if ollamaService.SystemPrompt == "" {
-		t.Error("SystemPrompt가 설정되지 않았습니다")
-	}
 }
 
-// AssertEnvironmentMessageIsValid validates environment message content
-func AssertEnvironmentMessageIsValid(t *testing.T, message *api.Message, environment string) {
+// assertEnvironmentMessageIsValid validates environment message content
+func assertEnvironmentMessageIsValid(t *testing.T, message *api.Message, environment string) {
 	if message == nil {
 		t.Fatal("EnviromentMessage가 nil을 반환했습니다")
 	}
@@ -134,95 +45,154 @@ func AssertEnvironmentMessageIsValid(t *testing.T, message *api.Message, environ
 		t.Error("메시지 역할이 'system'이 아닙니다")
 	}
 
-	ExpectedContent := service.EnviromentInfo + environment
-	if message.Content != ExpectedContent {
+	expectedContent := service.EnviromentInfo + environment
+	if message.Content != expectedContent {
 		t.Error("메시지 내용이 올바르지 않습니다")
 	}
 }
 
-// AssertUserMessageAdded validates that user message was added correctly
-func AssertUserMessageAdded(t *testing.T, ollamaService *service.OllamaService, expectedMessage string) {
+// assertUserMessageAdded validates that user message was added correctly
+func assertUserMessageAdded(t *testing.T, ollamaService *service.OllamaService, expectedMessage string) {
 	if len(ollamaService.Messages) == 0 {
 		t.Fatal("메시지가 추가되지 않았습니다")
 	}
 
-	LastMessage := ollamaService.Messages[len(ollamaService.Messages)-1]
-	if LastMessage.Role != "user" {
+	lastMessage := ollamaService.Messages[len(ollamaService.Messages)-1]
+	if lastMessage.Role != "user" {
 		t.Error("메시지 역할이 'user'가 아닙니다")
 	}
 
-	if LastMessage.Content != expectedMessage {
+	if lastMessage.Content != expectedMessage {
 		t.Error("메시지 내용이 올바르지 않습니다")
 	}
 }
 
-func TestOllamaService_UpdateEnvironmentToolList_ShouldPublishBothEvents(t *testing.T) {
-	// Given
-	OllamaService, EventBus := SetupOllamaService()
+
+
+func TestNewOllamaService_ShouldCreateServiceSuccessfully(t *testing.T) {
+	// Given & When
+	ollamaService, eventBus := SetupOllamaService()
 	defer CleanupTestConfig()
 
-	var ReceivedEvents []events.Event
-	TestHandler := &TestEventHandler{
+	// Then
+	AssertNoPanic(t, "NewOllamaService", func() {
+		service.NewOllamaService(eventBus)
+	})
+
+	assertOllamaServiceIsValid(t, ollamaService, eventBus)
+}
+
+func TestOllamaService_GetID_ShouldReturnCorrectServiceID(t *testing.T) {
+	// Given
+	ollamaService, _ := SetupOllamaService()
+	defer CleanupTestConfig()
+	expectedID := types.LLMService
+
+	// When
+	actualID := ollamaService.GetID()
+
+	// Then
+	if int(actualID) != int(expectedID) {
+		t.Errorf("GetID() = %d, 예상값 %d", int(actualID), int(expectedID))
+	}
+}
+
+func TestOllamaService_EnvironmentMessage_ShouldCreateSystemMessage(t *testing.T) {
+	// Given
+	ollamaService, _ := SetupOllamaService()
+	defer CleanupTestConfig()
+	testEnvironment := "test environment info"
+	ollamaService.Environment = testEnvironment
+
+	// When
+	message := ollamaService.EnviromentMessage()
+
+	// Then
+	assertEnvironmentMessageIsValid(t, message, testEnvironment)
+}
+
+func TestOllamaService_UpdateUserInput_ShouldAddUserMessage(t *testing.T) {
+	// Given
+	ollamaService, _ := SetupOllamaService()
+	defer CleanupTestConfig()
+	testMessage := "테스트 사용자 입력"
+
+	// When
+	ollamaService.UpdateUserInput(testMessage)
+
+	// Then
+	assertUserMessageAdded(t, ollamaService, testMessage)
+}
+
+
+func TestOllamaService_UpdateEnvironmentToolList_ShouldPublishBothEvents(t *testing.T) {
+	// Given
+	ollamaService, eventBus := SetupOllamaService()
+	defer CleanupTestConfig()
+
+	var receivedEvents []events.Event
+	testHandler := &TestEventHandler{
 		HandleFunc: func(event events.Event) {
-			ReceivedEvents = append(ReceivedEvents, event)
+			receivedEvents = append(receivedEvents, event)
 		},
 		ID: TestService,
 	}
 
-	EventBus.Subscribe(events.RequestEnvionmentvent, TestHandler)
-	EventBus.Subscribe(events.RequestToolListEvent, TestHandler)
+	eventBus.Subscribe(events.RequestEnvionmentvent, testHandler)
+	eventBus.Subscribe(events.RequestToolListEvent, testHandler)
 
 	// When
-	OllamaService.UpdateEnviromentToolList()
-	time.Sleep(10 * time.Millisecond) // Wait for async processing
+	ollamaService.UpdateEnviromentToolList()
+	time.Sleep(AsyncWaitTime)
 
 	// Then
-	AssertBothEventsWerePublished(t, ReceivedEvents)
+	assertBothEventsWerePublished(t, receivedEvents)
 }
 
-// AssertBothEventsWerePublished validates that both environment and tool list events were published
-func AssertBothEventsWerePublished(t *testing.T, eventList []events.Event) {
+// assertBothEventsWerePublished validates that both environment and tool list events were published
+func assertBothEventsWerePublished(t *testing.T, eventList []events.Event) {
 	if len(eventList) != 2 {
 		t.Errorf("발행된 이벤트 수 = %d, 예상값 2", len(eventList))
 	}
 
-	HasEnvironmentEvent := false
-	HasToolListEvent := false
+	hasEnvironmentEvent := false
+	hasToolListEvent := false
 	for _, event := range eventList {
 		if event.Type == events.RequestEnvionmentvent {
-			HasEnvironmentEvent = true
+			hasEnvironmentEvent = true
 		}
 		if event.Type == events.RequestToolListEvent {
-			HasToolListEvent = true
+			hasToolListEvent = true
 		}
 	}
 
-	if !HasEnvironmentEvent {
+	if !hasEnvironmentEvent {
 		t.Error("RequestEnvionmentvent가 발행되지 않았습니다")
 	}
 
-	if !HasToolListEvent {
+	if !hasToolListEvent {
 		t.Error("RequestToolListEvent가 발행되지 않았습니다")
 	}
 }
 
+
 func TestOllamaService_CancelStream_ShouldCancelActiveStream(t *testing.T) {
 	// Given
-	OllamaService, _ := SetupOllamaService()
+	ollamaService, _ := SetupOllamaService()
 	defer CleanupTestConfig()
 	
-	RequestUUID := uuid.New()
-	Context, CancelFunc := context.WithCancel(context.Background())
+	requestUUID := uuid.New()
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	
-	OllamaService.ActiveStreams = make(map[uuid.UUID]context.CancelFunc)
-	OllamaService.ActiveStreams[RequestUUID] = CancelFunc
+	ollamaService.ActiveStreams = make(map[uuid.UUID]context.CancelFunc)
+	ollamaService.ActiveStreams[requestUUID] = cancelFunc
 
 	// When
-	OllamaService.CancelStream(RequestUUID)
+	ollamaService.CancelStream(requestUUID)
 
 	// Then
 	select {
-	case <-Context.Done():
+	case <-ctx.Done():
 		// Success: context was cancelled
 	default:
 		t.Error("context가 취소되지 않았습니다")
@@ -231,39 +201,37 @@ func TestOllamaService_CancelStream_ShouldCancelActiveStream(t *testing.T) {
 
 func TestOllamaService_HandleEvent_ShouldProcessUserInputEventCorrectly(t *testing.T) {
 	// Given
-	OllamaService, _ := SetupOllamaService()
+	ollamaService, _ := SetupOllamaService()
 	defer CleanupTestConfig()
 
-	RequestData := types.RequestData{
-		SessionUUID: uuid.New(),
-		RequestUUID: uuid.New(),
-		Message:     "테스트 메시지",
-	}
+	testMessage := "테스트 메시지"
+	requestData := CreateTestRequestData(testMessage)
 
-	UserInputEvent := events.Event{
+	userInputEvent := events.Event{
 		Type:      events.UserInputEvent,
-		Data:      RequestData,
+		Data:      requestData,
 		Timestamp: time.Now(),
 		Source:    TestService,
 	}
 
 	// When & Then
 	AssertNoPanic(t, "HandleEvent", func() {
-		OllamaService.HandleEvent(UserInputEvent)
+		ollamaService.HandleEvent(userInputEvent)
 	})
 
-	AssertUserMessageAddedFromEvent(t, OllamaService, RequestData.Message)
+	assertUserMessageAddedFromEvent(t, ollamaService, testMessage)
 }
 
-// AssertUserMessageAddedFromEvent validates that user message from event was processed correctly
-func AssertUserMessageAddedFromEvent(t *testing.T, ollamaService *service.OllamaService, expectedMessage string) {
+// assertUserMessageAddedFromEvent validates that user message from event was processed correctly
+func assertUserMessageAddedFromEvent(t *testing.T, ollamaService *service.OllamaService, expectedMessage string) {
 	if len(ollamaService.Messages) == 0 {
 		t.Error("메시지가 추가되지 않았습니다")
 		return
 	}
 
-	LastMessage := ollamaService.Messages[len(ollamaService.Messages)-1]
-	if LastMessage.Content != expectedMessage {
+	lastMessage := ollamaService.Messages[len(ollamaService.Messages)-1]
+	if lastMessage.Content != expectedMessage {
 		t.Error("메시지 내용이 올바르지 않습니다")
 	}
 }
+

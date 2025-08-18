@@ -15,12 +15,12 @@ import (
 
 // 모든 스트림 출력을 자세히 분석하는 테스트
 func TestAllStreamOutputAnalysis(t *testing.T) {
-	if !isOllamaRunning() {
+	if !IsOllamaRunning() {
 		t.Skip("Ollama 서버가 실행되지 않아 통합 테스트를 건너뜁니다")
 	}
 
-	setupIntegrationTest()
-	defer cleanupIntegrationTest()
+	SetupIntegrationTest()
+	defer CleanupTestConfig()
 
 	bus := events.NewEventBus()
 	ollamaService := service.NewOllamaService(bus)
@@ -35,25 +35,25 @@ func TestAllStreamOutputAnalysis(t *testing.T) {
 	analysisHandler := &TestEventHandler{
 		HandleFunc: func(event events.Event) {
 			allEvents = append(allEvents, event)
-			
-			switch event.Type {
-			case events.StreramChunkEvnet:
-				if data, ok := event.Data.(types.StreamChunkData); ok {
-					rawChunks = append(rawChunks, data.Chunk.Content)
-					t.Logf("청크: '%s' (완료: %t)", data.Chunk.Content, data.Chunk.IsComplete)
-				}
-			case events.StreamCompleteEvent:
-				if data, ok := event.Data.(types.StreamCompleteData); ok {
-					completeMessages = append(completeMessages, data.FinalMessage.Content)
-					t.Logf("완료된 메시지: '%s'", data.FinalMessage.Content)
-					t.Logf("도구 호출 개수: %d", len(data.FinalMessage.ToolCalls))
-				}
-			case events.ToolCallEvent:
-				if data, ok := event.Data.(types.ToolCallData); ok {
-					toolCalls = append(toolCalls, data)
-					t.Logf("도구 호출: %s, 매개변수: %+v", data.ToolName, data.Paramters)
-				}
-			case events.StreamStartEvent:
+				
+				switch event.Type {
+				case events.StreamChunkEvent:
+					if data, ok := event.Data.(types.StreamChunkData); ok {
+						rawChunks = append(rawChunks, data.Content)
+						t.Logf("청크: '%s' (완료: %t)", data.Content, data.IsComplete)
+					}
+				case events.StreamCompleteEvent:
+					if data, ok := event.Data.(types.StreamCompleteData); ok {
+						completeMessages = append(completeMessages, data.FinalMessage.Content)
+						t.Logf("완료된 메시지: '%s'", data.FinalMessage.Content)
+						t.Logf("도구 호출 개수: %d", len(data.FinalMessage.ToolCalls))
+					}
+				case events.ToolCallEvent:
+					if data, ok := event.Data.(types.ToolCallData); ok {
+						toolCalls = append(toolCalls, data)
+						t.Logf("도구 호출: %s, 매개변수: %+v", data.ToolName, data.Paramters)
+					}
+				case events.StreamStartEvent:
 				if data, ok := event.Data.(types.StreamStartData); ok {
 					t.Logf("스트림 시작: %s", data.RequestUUID)
 				}
@@ -68,7 +68,7 @@ func TestAllStreamOutputAnalysis(t *testing.T) {
 
 	// 모든 관련 이벤트 구독
 	bus.Subscribe(events.StreamStartEvent, analysisHandler)
-	bus.Subscribe(events.StreramChunkEvnet, analysisHandler)
+	bus.Subscribe(events.StreamChunkEvent, analysisHandler)
 	bus.Subscribe(events.StreamCompleteEvent, analysisHandler)
 	bus.Subscribe(events.StreamErrorEvent, analysisHandler)
 	bus.Subscribe(events.ToolCallEvent, analysisHandler)
@@ -101,12 +101,17 @@ func TestAllStreamOutputAnalysis(t *testing.T) {
 		},
 		{
 			name:    "함수 예제 코드",
-			message: "Go에서 덧셈을 하는 함수를 작성해주세요. 마크다운 코드 블록으로 보여주세요.",
+			message: "Go에서 덧셈을 하는 함수를 작성해주세요.",
 			expectToolCalls: false,
 		},
 		{
 			name:    "복잡한 코드 구조",
 			message: "Go에서 구조체와 메서드를 사용하는 예제를 보여주세요. 주석도 포함해서 작성해주세요.",
+			expectToolCalls: false,
+		},
+		{
+			name: "마크다운 문서 출력",
+			message: "간단한 마크다운 문서를 작성해주세요.",
 			expectToolCalls: false,
 		},
 	}
@@ -128,14 +133,14 @@ func TestAllStreamOutputAnalysis(t *testing.T) {
 			ollamaService.CallApi(requestUUID)
 
 			// 응답 완료 대기
-			timeout := time.After(60 * time.Second)
+			timeout := time.After(IntegrationTimeout)
 			completed := false
 
 			for !completed {
 				select {
 				case <-timeout:
 					t.Fatal("API 호출 시간 초과")
-				case <-time.After(100 * time.Millisecond):
+				case <-time.After(AsyncWaitTime):
 					for _, event := range allEvents {
 						if event.Type == events.StreamCompleteEvent {
 							completed = true

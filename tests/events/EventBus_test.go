@@ -1,6 +1,7 @@
 package events
 
 import (
+	"UniCode/src/events"
 	"UniCode/src/types"
 	"sync"
 	"testing"
@@ -14,11 +15,11 @@ const TestServiceType types.Source = 999
 // TestSubscriber is a test implementation of EventHandler interface
 type TestSubscriber struct {
 	ID             types.Source
-	ReceivedEvents []Event
+	ReceivedEvents []events.Event
 	Mutex          sync.Mutex
 }
 
-func (subscriber *TestSubscriber) HandleEvent(event Event) {
+func (subscriber *TestSubscriber) HandleEvent(event events.Event) {
 	subscriber.Mutex.Lock()
 	defer subscriber.Mutex.Unlock()
 	subscriber.ReceivedEvents = append(subscriber.ReceivedEvents, event)
@@ -28,15 +29,15 @@ func (subscriber *TestSubscriber) GetID() types.Source {
 	return subscriber.ID
 }
 
-func (subscriber *TestSubscriber) GetReceivedEvents() []Event {
+func (subscriber *TestSubscriber) GetReceivedEvents() []events.Event {
 	subscriber.Mutex.Lock()
 	defer subscriber.Mutex.Unlock()
-	return append([]Event{}, subscriber.ReceivedEvents...)
+	return append([]events.Event{}, subscriber.ReceivedEvents...)
 }
 
 // SetupEventBus creates a new EventBus for testing
-func SetupEventBus() *EventBus {
-	return NewEventBus()
+func SetupEventBus() *events.EventBus {
+	return events.NewEventBus()
 }
 
 // CreateTestSubscriber creates a test subscriber with given ID
@@ -45,8 +46,8 @@ func CreateTestSubscriber(ID types.Source) *TestSubscriber {
 }
 
 // CreateTestEvent creates a test event for testing
-func CreateTestEvent(EventType EventType, Source types.Source, Message string) Event {
-	return Event{
+func CreateTestEvent(EventType events.EventType, Source types.Source, Message string) events.Event {
+	return events.Event{
 		Type: EventType,
 		Data: types.RequestData{
 			SessionUUID: uuid.New(),
@@ -60,7 +61,7 @@ func CreateTestEvent(EventType EventType, Source types.Source, Message string) E
 
 func TestNewEventBus_ShouldCreateEventBusSuccessfully(t *testing.T) {
 	// When
-	EventBus := NewEventBus()
+	EventBus := events.NewEventBus()
 
 	// Then
 	if EventBus == nil {
@@ -78,10 +79,10 @@ func TestEventBus_Subscribe_ShouldAddSubscriberSuccessfully(t *testing.T) {
 	TestSubscriber := CreateTestSubscriber(TestServiceType)
 
 	// When
-	EventBus.Subscribe(UserInputEvent, TestSubscriber)
+	EventBus.Subscribe(events.UserInputEvent, TestSubscriber)
 
 	// Then
-	Subscribers := EventBus.Subscribers[UserInputEvent]
+	Subscribers := EventBus.Subscribers[events.UserInputEvent]
 	if len(Subscribers) != 1 {
 		t.Errorf("구독자 수 = %d, 예상값 1", len(Subscribers))
 	}
@@ -95,13 +96,13 @@ func TestEventBus_UnSubscribe_ShouldRemoveSubscriberSuccessfully(t *testing.T) {
 	// Given
 	EventBus := SetupEventBus()
 	TestSubscriber := CreateTestSubscriber(TestServiceType)
-	EventBus.Subscribe(UserInputEvent, TestSubscriber)
+	EventBus.Subscribe(events.UserInputEvent, TestSubscriber)
 
 	// When
-	EventBus.UnSubscribe(UserInputEvent, TestServiceType)
+	EventBus.UnSubscribe(events.UserInputEvent, TestServiceType)
 
 	// Then
-	Subscribers := EventBus.Subscribers[UserInputEvent]
+	Subscribers := EventBus.Subscribers[events.UserInputEvent]
 	if len(Subscribers) != 0 {
 		t.Errorf("구독자 수 = %d, 예상값 0", len(Subscribers))
 	}
@@ -111,8 +112,8 @@ func TestEventBus_Publish_ShouldDeliverEventToSubscriber(t *testing.T) {
 	// Given
 	EventBus := SetupEventBus()
 	TestSubscriber := CreateTestSubscriber(TestServiceType)
-	EventBus.Subscribe(UserInputEvent, TestSubscriber)
-	TestEvent := CreateTestEvent(UserInputEvent, TestServiceType, "테스트 메시지")
+	EventBus.Subscribe(events.UserInputEvent, TestSubscriber)
+	TestEvent := CreateTestEvent(events.UserInputEvent, TestServiceType, "테스트 메시지")
 
 	// When
 	EventBus.Publish(TestEvent)
@@ -134,10 +135,10 @@ func TestEventBus_MultipleSubscribers_ShouldDeliverEventToAllSubscribers(t *test
 	Subscriber1 := CreateTestSubscriber(TestServiceType)
 	Subscriber2 := CreateTestSubscriber(types.MessageService)
 	
-	EventBus.Subscribe(UserInputEvent, Subscriber1)
-	EventBus.Subscribe(UserInputEvent, Subscriber2)
+	EventBus.Subscribe(events.UserInputEvent, Subscriber1)
+	EventBus.Subscribe(events.UserInputEvent, Subscriber2)
 	
-	TestEvent := CreateTestEvent(UserInputEvent, TestServiceType, "멀티 구독자 테스트")
+	TestEvent := CreateTestEvent(events.UserInputEvent, TestServiceType, "멀티 구독자 테스트")
 
 	// When
 	EventBus.Publish(TestEvent)
@@ -160,7 +161,7 @@ func TestEventBus_ConcurrentPublish_ShouldHandleAllEventsCorrectly(t *testing.T)
 	// Given
 	EventBus := SetupEventBus()
 	TestSubscriber := CreateTestSubscriber(TestServiceType)
-	EventBus.Subscribe(UserInputEvent, TestSubscriber)
+	EventBus.Subscribe(events.UserInputEvent, TestSubscriber)
 
 	NumberOfEvents := 10
 	var WaitGroup sync.WaitGroup
@@ -170,7 +171,7 @@ func TestEventBus_ConcurrentPublish_ShouldHandleAllEventsCorrectly(t *testing.T)
 		WaitGroup.Add(1)
 		go func(index int) {
 			defer WaitGroup.Done()
-			TestEvent := CreateTestEvent(UserInputEvent, TestServiceType, "동시성 테스트")
+			TestEvent := CreateTestEvent(events.UserInputEvent, TestServiceType, "동시성 테스트")
 			EventBus.Publish(TestEvent)
 		}(i)
 	}
@@ -186,7 +187,7 @@ func TestEventBus_ConcurrentPublish_ShouldHandleAllEventsCorrectly(t *testing.T)
 }
 
 // AssertEventEquals compares two events for equality
-func AssertEventEquals(t *testing.T, actual, expected Event) {
+func AssertEventEquals(t *testing.T, actual, expected events.Event) {
 	if actual.Type != expected.Type {
 		t.Error("받은 이벤트 타입이 올바르지 않습니다")
 	}

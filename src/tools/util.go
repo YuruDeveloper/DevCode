@@ -6,12 +6,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-
-func TextReturn(input types.Result) (*mcp.CallToolResultFor[any] ,error){
-	json , err := input.Content()
+func TextReturn(input types.Result) (*mcp.CallToolResultFor[any], error) {
+	json, err := input.Content()
 	return &mcp.CallToolResultFor[any]{
-		Content: []mcp.Content {
-			json ,
+		Content: []mcp.Content{
+			json,
 		},
-	} , err
+	}, err
 }
