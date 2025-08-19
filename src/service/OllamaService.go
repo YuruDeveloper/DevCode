@@ -19,23 +19,29 @@ import (
 )
 
 const (
-	EnviromentInfo = "  Here is useful information about the environment you are running in:\n"
+	EnvironmentInfo = "  Here is useful information about the environment you are running in:\n"
 )
 
+type RequestContext struct {
+	RequestUUID uuid.UUID
+	ToolCalls   map[uuid.UUID]string
+}
+
 type OllamaService struct {
-	Client         *api.Client
-	Model          string
-	Ctx            context.Context
-	Bus            *events.EventBus
-	SystemMessages []api.Message
-	Messages       []api.Message
-	Tools          []api.Tool
-	Environment    string
-	ActiveStreams  map[uuid.UUID]context.CancelFunc
-	StreamMutex    sync.RWMutex
-	Buffer         string
-	CallList 		map[uuid.UUID]string
-	ToolCall bool
+	Client          *api.Client
+	Model           string
+	Ctx             context.Context
+	Bus             *events.EventBus
+	SystemMessages  []api.Message
+	Messages        []api.Message
+	Tools           []api.Tool
+	Environment     string
+	ActiveStreams   map[uuid.UUID]context.CancelFunc
+	StreamMutex     sync.RWMutex
+	Buffer          string
+	RequestContents map[uuid.UUID]RequestContext
+	RequestMutex    sync.RWMutex
+	ToolCall        bool
 }
 
 func NewOllamaService(bus *events.EventBus) *OllamaService {
@@ -63,22 +69,20 @@ func NewOllamaService(bus *events.EventBus) *OllamaService {
 		panic(err)
 	}
 	service := &OllamaService{
-		Client:         &ollama,
-		Model:          ollamaModel,
-		Ctx:            ctx,
-		Bus:            bus,
-		SystemMessages: systemMessages,
-		Messages:       make([]api.Message, 0, 100),
-		Tools:          make([]api.Tool, 0, 10),
-		CallList: make(map[uuid.UUID]string,0),
+		Client:          &ollama,
+		Model:           ollamaModel,
+		Ctx:             ctx,
+		Bus:             bus,
+		SystemMessages:  systemMessages,
+		Messages:        make([]api.Message, 0, 100),
+		Tools:           make([]api.Tool, 0, 10),
+		RequestContents: make(map[uuid.UUID]RequestContext, 10),
 	}
 	bus.Subscribe(events.UserInputEvent, service)
-	bus.Subscribe(events.UpdateEnvionmentEvent, service)
+	bus.Subscribe(events.UpdateEnvironmentEvent, service)
 	bus.Subscribe(events.UpdateToolListEvent, service)
 	bus.Subscribe(events.StreamCancelEvent, service)
-	bus.Subscribe(events.ToolErrorEvent, service)
-	bus.Subscribe(events.ToolCompleteEvent, service)
-	bus.Subscribe(events.ToolResultEvent,service)
+	bus.Subscribe(events.ToolResultEvent, service)
 	return service
 }
 
@@ -86,10 +90,10 @@ func (instance *OllamaService) HandleEvent(event events.Event) {
 	switch event.Type {
 	case events.UserInputEvent:
 		instance.UpdateUserInput(event.Data.(types.RequestData).Message)
-		instance.UpdateEnviromentToolList()
+		instance.UpdateEnvironmentToolList()
 		instance.CallApi(event.Data.(types.RequestData).RequestUUID)
-	case events.UpdateEnvionmentEvent:
-		instance.Environment = utils.EnviromentUpdateDataToString(event.Data.(types.EnviromentUpdateData))
+	case events.UpdateEnvironmentEvent:
+		instance.Environment = utils.EnvironmentUpdateDataToString(event.Data.(types.EnvironmentUpdateData))
 	case events.UpdateToolListEvent:
 		instance.UpdateToolList(event.Data.(types.ToolListUpdateData).List)
 	case events.StreamCancelEvent:
@@ -100,23 +104,27 @@ func (instance *OllamaService) HandleEvent(event events.Event) {
 }
 
 func (instance *OllamaService) ProcessToolResult(data types.ToolResultData) {
-	if _ , exists := instance.CallList[data.RequestUUID] ; exists {
-		msg := api.Message {
-			Role: "tool",
+	instance.RequestMutex.Lock()
+	defer instance.RequestMutex.Unlock()
+
+	if _, exists := instance.RequestContents[data.RequestUUID].ToolCalls[data.ToolCall]; exists {
+		msg := api.Message{
+			Role:    "tool",
 			Content: data.ToolResult,
 		}
-		instance.Messages = append(instance.Messages, msg)	
-		delete(instance.CallList,data.RequestUUID)
-		if len(instance.CallList) == 0 {
+		instance.Messages = append(instance.Messages, msg)
+		delete(instance.RequestContents[data.RequestUUID].ToolCalls, data.ToolCall)
+		if len(instance.RequestContents[data.RequestUUID].ToolCalls) == 0 {
+			delete(instance.RequestContents, data.RequestUUID)
 			instance.CallApi(data.RequestUUID)
 		}
 	}
 }
 
-func (instance *OllamaService) EnviromentMessage() *api.Message {
+func (instance *OllamaService) EnvironmentMessage() *api.Message {
 	return &api.Message{
 		Role:    "system",
-		Content: EnviromentInfo + instance.Environment,
+		Content: EnvironmentInfo + instance.Environment,
 	}
 }
 
@@ -143,11 +151,11 @@ func (instance *OllamaService) GetID() types.Source {
 	return types.LLMService
 }
 
-func (instance *OllamaService) UpdateEnviromentToolList() {
+func (instance *OllamaService) UpdateEnvironmentToolList() {
 	instance.Bus.Publish(
 		events.Event{
-			Type: events.RequestEnvionmentvent,
-			Data: types.EnviromentRequestData{
+			Type: events.RequestEnvironmentEvent,
+			Data: types.EnvironmentRequestData{
 				CreateUUID: uuid.New(),
 			},
 			Timestamp: time.Now(),
@@ -188,7 +196,7 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 
 	request := api.ChatRequest{
 		Model:    instance.Model,
-		Messages: append(append(instance.SystemMessages, *instance.EnviromentMessage()), instance.Messages...),
+		Messages: append(append(instance.SystemMessages, *instance.EnvironmentMessage()), instance.Messages...),
 		Tools:    instance.Tools,
 		Stream:   &[]bool{true}[0],
 	}
@@ -208,7 +216,7 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 			instance.Bus.Publish(
 				events.Event{
 					Type: events.StreamErrorEvent,
-					Data: types.SteramErrorData{
+					Data: types.StreamErrorData{
 						RequestUUID: requestUUID,
 						Error:       err,
 					},
@@ -230,31 +238,44 @@ func (instance *OllamaService) Response(requestUUID uuid.UUID, response api.Chat
 		instance.Buffer += response.Message.Content
 	}
 	if response.Done {
-		
+
 		PublishEvent(instance.Bus, events.StreamCompleteEvent, types.StreamCompleteData{
 			RequestUUID:  requestUUID,
 			FinalMessage: response.Message,
-			IsComplete: !instance.ToolCall,
+			IsComplete:   !instance.ToolCall,
 		}, types.LLMService)
-		
+
 		instance.Messages = append(instance.Messages, api.Message{
 			Role:    "assistant",
 			Content: instance.Buffer,
 		})
 		instance.Buffer = ""
 		if instance.ToolCall {
-			instance.ToolCall = len(instance.CallList) != 0
+			instance.RequestMutex.RLock()
+			instance.ToolCall = len(instance.RequestContents[requestUUID].ToolCalls) != 0
+			instance.RequestMutex.RUnlock()
 		}
 	}
 	if len(response.Message.ToolCalls) > 0 {
 		for _, call := range response.Message.ToolCalls {
-			requestUUID := uuid.New()
+			toolCall := uuid.New()
 			PublishEvent(instance.Bus, events.ToolCallEvent, types.ToolCallData{
 				RequestUUID: requestUUID,
+				ToolCall:    toolCall,
 				ToolName:    call.Function.Name,
-				Paramters:   call.Function.Arguments,
+				Parameters:  call.Function.Arguments,
 			}, types.LLMService)
-			instance.CallList[requestUUID] = call.Function.Name
+			instance.RequestMutex.Lock()
+			if content, exist := instance.RequestContents[requestUUID]; exist {
+				content.ToolCalls[toolCall] = call.Function.Name
+			} else {
+				instance.RequestContents[requestUUID] = RequestContext{
+					RequestUUID: requestUUID,
+					ToolCalls:   make(map[uuid.UUID]string),
+				}
+				instance.RequestContents[requestUUID].ToolCalls[toolCall] = call.Function.Name
+			}
+			instance.RequestMutex.Unlock()
 			instance.ToolCall = true
 		}
 	}
@@ -268,4 +289,11 @@ func (instance *OllamaService) CancelStream(requestUUID uuid.UUID) {
 	if exists {
 		cancel()
 	}
+	instance.RequestMutex.Lock()
+	_, exists = instance.RequestContents[requestUUID]
+	if exists {
+		delete(instance.RequestContents, requestUUID)
+	}
+	instance.RequestMutex.Unlock()
+	instance.ToolCall = false
 }

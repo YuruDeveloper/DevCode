@@ -10,10 +10,9 @@ type EventType int
 const (
 	UserInputEvent = iota + 1
 	ToolCallEvent
-	ErrorEvent
 	AcceptToolEvent
-	RequestEnvionmentvent
-	UpdateEnvionmentEvent
+	RequestEnvironmentEvent
+	UpdateEnvironmentEvent
 	RequestToolListEvent
 	UpdateToolListEvent
 	StreamStartEvent
@@ -21,14 +20,13 @@ const (
 	StreamCompleteEvent
 	StreamErrorEvent
 	StreamCancelEvent
-	ToolErrorEvent
-	ToolCompleteEvent
-	RequesetToolUseEvent
+	RequestToolUseEvent
 	StreamChunkParsedEvent
 	StreamChunkParsedErrorEvent
+	ToolRawResultEvent
 	ToolResultEvent
-	AcceptEvent
-	RejectEvent
+	ToolUseReportEvent
+	UserDecisionEvent
 )
 
 type Event struct {

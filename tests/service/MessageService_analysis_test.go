@@ -51,14 +51,14 @@ func TestAllStreamOutputAnalysis(t *testing.T) {
 				case events.ToolCallEvent:
 					if data, ok := event.Data.(types.ToolCallData); ok {
 						toolCalls = append(toolCalls, data)
-						t.Logf("도구 호출: %s, 매개변수: %+v", data.ToolName, data.Paramters)
+						t.Logf("도구 호출: %s, 매개변수: %+v", data.ToolName, data.Parameters)
 					}
 				case events.StreamStartEvent:
 				if data, ok := event.Data.(types.StreamStartData); ok {
 					t.Logf("스트림 시작: %s", data.RequestUUID)
 				}
 			case events.StreamErrorEvent:
-				if data, ok := event.Data.(types.SteramErrorData); ok {
+				if data, ok := event.Data.(types.StreamErrorData); ok {
 					t.Logf("스트림 에러: %v", data.Error)
 				}
 			}

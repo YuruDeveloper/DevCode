@@ -1,6 +1,6 @@
 package viewinterface
 
-import (
+import (	
 	"os"
 	"strings"
 	"time"
@@ -39,6 +39,14 @@ type StreamUpdateMsg struct {
 	IsComplete bool
 }
 
+type ToolApprovalMsg struct {
+    Data types.ToolUseReportData
+}
+
+type ToolStatusMsg struct {
+    Data types.ToolUseReportData
+}
+
 type Model struct {
 	Input            textarea.Model
 	Viewport         viewport.Model
@@ -52,6 +60,7 @@ type Model struct {
 	Status           Status
 	Insert           bool
 	Program          *tea.Program
+	Tool             string
 }
 
 func InitModel(bus *events.EventBus) *Model {
@@ -81,7 +90,8 @@ func InitModel(bus *events.EventBus) *Model {
 	}
 	bus.Subscribe(events.StreamChunkParsedEvent, model)
 	bus.Subscribe(events.StreamChunkParsedErrorEvent, model)
-	bus.Subscribe(events.RequesetToolUseEvent, model)
+	bus.Subscribe(events.RequestToolUseEvent, model)
+	bus.Subscribe(events.ToolUseReportEvent, model)
 	return model
 }
 
@@ -112,6 +122,8 @@ func (instance *Model) HandleEvent(event events.Event) {
 				IsComplete: true,
 			})
 		}
+	case events.RequestToolUseEvent:
+	case events.ToolUseReportEvent:
 	}
 }
 
@@ -233,6 +245,9 @@ func (instance *Model) View() string {
 	var builder strings.Builder
 	if instance.AssistantMessage != "" {
 		builder.WriteString(instance.AssistantMessage + "\n")
+	}
+	if instance.Tool != "" {
+		builder.WriteString(instance.Tool + "\n")
 	}
 	builder.WriteString(instance.ProcessInputRendering())
 	return builder.String()

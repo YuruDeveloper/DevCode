@@ -44,7 +44,7 @@ func TestHistoryService_HandleEvent_ShouldUpdateEnvironmentDataCorrectly(t *test
 	historyService, _ := SetupHistoryService()
 	environmentData := CreateTestEnvironmentData()
 	updateEnvironmentEvent := events.Event{
-		Type:      events.UpdateEnvionmentEvent,
+		Type:      events.UpdateEnvironmentEvent,
 		Data:      environmentData,
 		Timestamp: time.Now(),
 		Source:    types.EnvironmentService,
@@ -54,7 +54,7 @@ func TestHistoryService_HandleEvent_ShouldUpdateEnvironmentDataCorrectly(t *test
 	historyService.HandleEvent(updateEnvironmentEvent)
 
 	// Then
-	assertEnvironmentDataEquals(t, historyService.EnviromentData, environmentData)
+	assertEnvironmentDataEquals(t, historyService.EnvironmentData, environmentData)
 }
 
 func TestHistoryService_HandleEvent_ShouldHandleUnknownEventsWithoutPanic(t *testing.T) {
@@ -69,7 +69,7 @@ func TestHistoryService_HandleEvent_ShouldHandleUnknownEventsWithoutPanic(t *tes
 }
 
 // assertEnvironmentDataEquals compares two environment data structures
-func assertEnvironmentDataEquals(t *testing.T, actual, expected types.EnviromentUpdateData) {
+func assertEnvironmentDataEquals(t *testing.T, actual, expected types.EnvironmentUpdateData) {
 	if actual.CreateUUID != expected.CreateUUID {
 		t.Error("CreateUUID가 올바르게 업데이트되지 않았습니다")
 	}

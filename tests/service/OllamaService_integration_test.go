@@ -351,7 +351,7 @@ func TestOllamaService_ConsecutiveQuestions_Integration(t *testing.T) {
 					}
 				}
 				if event.Type == events.StreamErrorEvent {
-					if data, ok := event.Data.(types.SteramErrorData); ok {
+					if data, ok := event.Data.(types.StreamErrorData); ok {
 						if data.RequestUUID == firstRequestUUID {
 							t.Fatalf("첫 번째 질문 API 호출 에러: %v", data.Error)
 						}
@@ -412,7 +412,7 @@ func TestOllamaService_ConsecutiveQuestions_Integration(t *testing.T) {
 					}
 				}
 				if event.Type == events.StreamErrorEvent {
-					if data, ok := event.Data.(types.SteramErrorData); ok {
+					if data, ok := event.Data.(types.StreamErrorData); ok {
 						if data.RequestUUID == secondRequestUUID {
 							t.Fatalf("두 번째 질문 API 호출 에러: %v", data.Error)
 						}

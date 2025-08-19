@@ -27,11 +27,11 @@ func (instance *MessageService) HandleEvent(event events.Event) {
 			IsComplete:  false,
 		}, types.MessageService)
 	case events.StreamChunkEvent:
-		instance.ParingMessage(event.Data.(types.StreamChunkData))
+		instance.ParsingMessage(event.Data.(types.StreamChunkData))
 	case events.StreamErrorEvent:
 		PublishEvent(instance.Bus, events.StreamChunkParsedErrorEvent, types.ParsedChunkErrorData{
-			RequestUUID: event.Data.(types.SteramErrorData).RequestUUID,
-			Error:       event.Data.(types.SteramErrorData).Error.Error(),
+			RequestUUID: event.Data.(types.StreamErrorData).RequestUUID,
+			Error:       event.Data.(types.StreamErrorData).Error.Error(),
 		}, types.MessageService)
 	case events.StreamCompleteEvent:
 		PublishEvent(instance.Bus, events.StreamChunkParsedEvent, types.ParsedChunkData{
@@ -46,7 +46,7 @@ func (instance *MessageService) GetID() types.Source {
 	return types.MessageService
 }
 
-func (instance *MessageService) ParingMessage(data types.StreamChunkData) {
+func (instance *MessageService) ParsingMessage(data types.StreamChunkData) {
 	PublishEvent(instance.Bus, events.StreamChunkParsedEvent, types.ParsedChunkData{
 		RequestUUID: data.RequestUUID,
 		Content:     data.Content,

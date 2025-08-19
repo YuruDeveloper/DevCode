@@ -3,7 +3,7 @@
 .PHONY: build clean test test-unit test-service test-integration test-all run format lint install help
 
 # Default target
-All: Build
+All: build
 
 # Build the project
 build:

@@ -57,6 +57,6 @@ func TestMessageService_ParsingMessage_ShouldProcessMessageWithoutPanic(t *testi
 
 	// When & Then
 	AssertNoPanic(t, "ParsingMessage", func() {
-		messageService.ParingMessage(testData)
+		messageService.ParsingMessage(testData)
 	})
 }

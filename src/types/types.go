@@ -41,6 +41,14 @@ const (
 	Model
 )
 
+type ToolStauts int
+
+const (
+	Call = iota + 100
+	Success
+	Error
+)
+
 //event data
 
 type RequestData struct {
@@ -49,7 +57,7 @@ type RequestData struct {
 	Message     string
 }
 
-type EnviromentUpdateData struct {
+type EnvironmentUpdateData struct {
 	CreateUUID         uuid.UUID
 	Cwd                string
 	OS                 string
@@ -58,7 +66,7 @@ type EnviromentUpdateData struct {
 	TodayDate          string
 }
 
-type EnviromentRequestData struct {
+type EnvironmentRequestData struct {
 	CreateUUID uuid.UUID
 }
 
@@ -83,10 +91,10 @@ type StreamChunkData struct {
 type StreamCompleteData struct {
 	RequestUUID  uuid.UUID
 	FinalMessage api.Message
-	IsComplete  bool
+	IsComplete   bool
 }
 
-type SteramErrorData struct {
+type StreamErrorData struct {
 	RequestUUID uuid.UUID
 	Error       error
 	ChunkCount  int
@@ -98,15 +106,9 @@ type StreamCancelData struct {
 
 type ToolCallData struct {
 	RequestUUID uuid.UUID
+	ToolCall    uuid.UUID
 	ToolName    string
-	Paramters   map[string]any
-}
-
-type RequestToolUseData struct {
-	RequestUUID uuid.UUID
-	ToolName    string
-	Paramters   map[string]any
-	AllowNeed   bool
+	Parameters  map[string]any
 }
 
 type ParsedChunkData struct {
@@ -122,5 +124,26 @@ type ParsedChunkErrorData struct {
 
 type ToolResultData struct {
 	RequestUUID uuid.UUID
+	ToolCall    uuid.UUID
 	ToolResult  string
+}
+
+type ToolRawResultData struct {
+	RequestUUID uuid.UUID
+	ToolCall    uuid.UUID
+	Result      *mcp.CallToolResult
+	Error       error
+}
+
+type ToolUseReportData struct {
+	RequestUUID uuid.UUID
+	ToolCall    uuid.UUID
+	ToolInfo    string
+	ToolStatus  ToolStauts
+}
+
+type UserDecisionData struct {
+	RequestUUID uuid.UUID
+	ToolCall    uuid.UUID
+	Aceept      bool
 }

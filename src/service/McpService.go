@@ -6,7 +6,6 @@ import (
 	"UniCode/src/types"
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/viper"
@@ -76,33 +75,19 @@ func (instance *McpService) HandleEvent(event events.Event) {
 func (instance *McpService) ToolCall(data types.ToolCallData) {
 	params := &mcp.CallToolParams{
 		Name:      data.ToolName,
-		Arguments: data.Paramters,
+		Arguments: data.Parameters,
 	}
-	Result, err := instance.ClientSession.CallTool(instance.ctx, params)
-	var builder strings.Builder
-	if err != nil {
-		builder.WriteString("<tool_use_error>\n")
-		builder.WriteString(err.Error() + "\n")
-		builder.WriteString("</tool_use_error>\n")
-		PublishEvent(instance.Bus, events.ToolResultEvent, types.ToolResultData{
-			RequestUUID: data.RequestUUID,
-			ToolResult:  builder.String(),
-		}, types.ToolService)
-		return
-	}
-	builder.WriteString("<result>\n")
-	for _, content := range Result.Content {
-		builder.WriteString(content.(*mcp.TextContent).Text + "\n")
-	}
-	builder.WriteString("</result>\n")
-	PublishEvent(instance.Bus, events.ToolResultEvent, types.ToolResultData{
+	result, err := instance.ClientSession.CallTool(instance.ctx, params)
+	PublishEvent(instance.Bus, events.ToolRawResultEvent, types.ToolRawResultData{
 		RequestUUID: data.RequestUUID,
-		ToolResult:  builder.String(),
-	}, types.ToolService)
+		ToolCall:    data.ToolCall,
+		Result:      result,
+		Error:       err,
+	}, types.McpService)
 }
 
 func (instance *McpService) PublishToolList() {
-	mcpToolList := make([]*mcp.Tool, 10)
+	mcpToolList := make([]*mcp.Tool, 0, 10)
 	for tool := range instance.ClientSession.Tools(instance.ctx, nil) {
 		mcpToolList = append(mcpToolList, tool)
 	}

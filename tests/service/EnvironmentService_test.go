@@ -44,17 +44,17 @@ func TestEnvironmentService_HandleEvent_ShouldPublishEnvironmentUpdateEvent(t *t
 	
 	testHandler := &TestEventHandler{
 		HandleFunc: func(event events.Event) {
-			if event.Type == events.UpdateEnvionmentEvent {
+			if event.Type == events.UpdateEnvironmentEvent {
 				receivedEvent = &event
 			}
 		},
 		ID: TestService,
 	}
-	eventBus.Subscribe(events.UpdateEnvionmentEvent, testHandler)
+	eventBus.Subscribe(events.UpdateEnvironmentEvent, testHandler)
 
 	requestEvent := events.Event{
-		Type: events.RequestEnvionmentvent,
-		Data: types.EnviromentRequestData{
+		Type: events.RequestEnvironmentEvent,
+		Data: types.EnvironmentRequestData{
 			CreateUUID: uuid.New(),
 		},
 		Timestamp: time.Now(),
@@ -67,7 +67,7 @@ func TestEnvironmentService_HandleEvent_ShouldPublishEnvironmentUpdateEvent(t *t
 
 	// Then
 	if receivedEvent == nil {
-		t.Error("UpdateEnvionmentEvent가 발행되지 않았습니다")
+		t.Error("UpdateEnvironmentEvent가 발행되지 않았습니다")
 		return
 	}
 
@@ -76,7 +76,7 @@ func TestEnvironmentService_HandleEvent_ShouldPublishEnvironmentUpdateEvent(t *t
 
 // assertEnvironmentUpdateEventIsValid validates environment update event data
 func assertEnvironmentUpdateEventIsValid(t *testing.T, event events.Event) {
-	environmentData, ok := event.Data.(types.EnviromentUpdateData)
+	environmentData, ok := event.Data.(types.EnvironmentUpdateData)
 	if !ok {
 		t.Error("이벤트 데이터 타입이 올바르지 않습니다")
 		return

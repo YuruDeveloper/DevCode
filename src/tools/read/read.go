@@ -87,7 +87,6 @@ func (instance *Tool) Description() string {
 func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
 	return func(ctx context.Context, session *mcp.ServerSession, params *mcp.CallToolParamsFor[Input]) (*mcp.CallToolResultFor[any], error) {
 		input := params.Arguments
-		fmt.Printf("read tool called %s",input.FilePath)
 		if input.FilePath == "" {
 			return tools.TextReturn(Fail{
 				Success:   false,

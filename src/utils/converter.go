@@ -43,10 +43,10 @@ func ConvertTool(mcpTool *mcp.Tool) api.Tool {
 	return ollamaTool
 }
 
-func EnviromentUpdateDataToString(data types.EnviromentUpdateData) string {
+func EnvironmentUpdateDataToString(data types.EnvironmentUpdateData) string {
 	var builder strings.Builder
 	builder.WriteString("<env>\n")
-	builder.WriteString(fmt.Sprintf("Woring directory: %s\n", data.Cwd))
+	builder.WriteString(fmt.Sprintf("Working directory: %s\n", data.Cwd))
 	builder.WriteString(fmt.Sprintf("Is directory a git repo: %t\n", data.IsDirectoryGitRepo))
 	builder.WriteString(fmt.Sprintf("Platform: %s\n", data.OS))
 	builder.WriteString(fmt.Sprintf("OS Version: %s\n", data.OSVersion))

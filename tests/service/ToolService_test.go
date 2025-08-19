@@ -65,7 +65,7 @@ func TestToolService_ProcessToolCall_ShouldProcessToolCallDataWithoutPanic(t *te
 	testData := types.ToolCallData{
 		RequestUUID: uuid.New(),
 		ToolName:    "testTool",
-		Paramters:   map[string]any{"param1": "value1"},
+		Parameters:   map[string]any{"param1": "value1"},
 	}
 
 	// When & Then

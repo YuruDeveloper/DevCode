@@ -45,7 +45,7 @@ func assertEnvironmentMessageIsValid(t *testing.T, message *api.Message, environ
 		t.Error("메시지 역할이 'system'이 아닙니다")
 	}
 
-	expectedContent := service.EnviromentInfo + environment
+	expectedContent := service.EnvironmentInfo + environment
 	if message.Content != expectedContent {
 		t.Error("메시지 내용이 올바르지 않습니다")
 	}
@@ -105,7 +105,7 @@ func TestOllamaService_EnvironmentMessage_ShouldCreateSystemMessage(t *testing.T
 	ollamaService.Environment = testEnvironment
 
 	// When
-	message := ollamaService.EnviromentMessage()
+	message := ollamaService.EnvironmentMessage()
 
 	// Then
 	assertEnvironmentMessageIsValid(t, message, testEnvironment)
@@ -138,11 +138,11 @@ func TestOllamaService_UpdateEnvironmentToolList_ShouldPublishBothEvents(t *test
 		ID: TestService,
 	}
 
-	eventBus.Subscribe(events.RequestEnvionmentvent, testHandler)
+	eventBus.Subscribe(events.RequestEnvironmentEvent, testHandler)
 	eventBus.Subscribe(events.RequestToolListEvent, testHandler)
 
 	// When
-	ollamaService.UpdateEnviromentToolList()
+	ollamaService.UpdateEnvironmentToolList()
 	time.Sleep(AsyncWaitTime)
 
 	// Then
@@ -158,7 +158,7 @@ func assertBothEventsWerePublished(t *testing.T, eventList []events.Event) {
 	hasEnvironmentEvent := false
 	hasToolListEvent := false
 	for _, event := range eventList {
-		if event.Type == events.RequestEnvionmentvent {
+		if event.Type == events.RequestEnvironmentEvent {
 			hasEnvironmentEvent = true
 		}
 		if event.Type == events.RequestToolListEvent {

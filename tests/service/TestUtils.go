@@ -172,8 +172,8 @@ func AssertNoPanic(t *testing.T, functionName string, fn func()) {
 }
 
 // CreateTestEnvironmentData creates test environment data for testing
-func CreateTestEnvironmentData() types.EnviromentUpdateData {
-	return types.EnviromentUpdateData{
+func CreateTestEnvironmentData() types.EnvironmentUpdateData {
+	return types.EnvironmentUpdateData{
 		CreateUUID:         uuid.New(),
 		Cwd:                "/test/path",
 		OS:                 "linux",
@@ -209,7 +209,7 @@ func CreateTestToolCallEvent() events.Event {
 		Data: types.ToolCallData{
 			RequestUUID: uuid.New(),
 			ToolName:    "testTool",
-			Paramters:   map[string]any{"param1": "value1", "param2": 42},
+			Parameters:   map[string]any{"param1": "value1", "param2": 42},
 		},
 		Timestamp: time.Now(),
 		Source:    TestService,
@@ -350,7 +350,7 @@ func ValidateToolCallResults(t *testing.T, handler *ToolCallTestHandler) {
 		t.Logf("✅ ToolCallEvent가 %d개 발생했습니다!", len(handler.ToolCallEvents))
 		for i, event := range handler.ToolCallEvents {
 			if data, ok := event.Data.(types.ToolCallData); ok {
-				t.Logf("   도구 호출 %d: %s, 매개변수: %+v", i+1, data.ToolName, data.Paramters)
+				t.Logf("   도구 호출 %d: %s, 매개변수: %+v", i+1, data.ToolName, data.Parameters)
 			}
 		}
 	} else {
