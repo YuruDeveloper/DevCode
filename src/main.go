@@ -20,7 +20,7 @@ func main() {
 	service.NewEnvironmentService(bus)
 	service.NewMessageService(bus)
 	service.NewToolService(bus)
-	model := viewinterface.NewModel(bus)
+	model := viewinterface.NewMainModel(bus)
 	program := tea.NewProgram(
 		model,
 	)
