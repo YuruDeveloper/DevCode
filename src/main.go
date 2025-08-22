@@ -20,11 +20,11 @@ func main() {
 	service.NewEnvironmentService(bus)
 	service.NewMessageService(bus)
 	service.NewToolService(bus)
-	model := viewinterface.InitModel(bus)
+	model := viewinterface.NewModel(bus)
 	program := tea.NewProgram(
 		model,
 	)
-	model.Program = program
+	model.SetProgram(program)
 
 	if _, err := program.Run(); err != nil {
 		fmt.Printf("오류 발생: %v", err)

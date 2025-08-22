@@ -3,21 +3,19 @@ module UniCode
 go 1.24.6
 
 require (
-	//drawing
-	github.com/Delta456/box-cli-maker/v2 v2.3.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.6
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/mattn/go-runewidth v0.0.16
-	golang.org/x/term v0.34.0
+	// uudi
+	github.com/google/uuid v1.6.0
+	github.com/mattn/go-runewidth v0.0.16 
 	//mcp
 	github.com/modelcontextprotocol/go-sdk v0.2.0
 	// llm
 	github.com/ollama/ollama v0.11.4
 	//setting
 	github.com/spf13/viper v1.20.1
-	// uudi
-	github.com/google/uuid v1.6.0 
+	golang.org/x/term v0.34.0
 )
 
 require (
@@ -53,5 +51,6 @@ require (
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

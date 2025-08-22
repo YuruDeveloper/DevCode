@@ -16,11 +16,11 @@ type EventBus struct {
 	BusMutex    sync.RWMutex
 }
 
-func (instance *EventBus) Subscribe(eventType EventType, subsciber Subscriber) {
+func (instance *EventBus) Subscribe(eventType EventType, subscriber Subscriber) {
 	instance.BusMutex.Lock()
 	defer instance.BusMutex.Unlock()
 
-	instance.Subscribers[eventType] = append(instance.Subscribers[eventType], subsciber)
+	instance.Subscribers[eventType] = append(instance.Subscribers[eventType], subscriber)
 }
 
 func (instance *EventBus) UnSubscribe(eventType EventType, subscriberID types.Source) {
@@ -39,8 +39,8 @@ func (instance *EventBus) Publish(event Event) {
 	instance.BusMutex.RLock()
 	defer instance.BusMutex.RUnlock()
 	for _, subscriber := range instance.Subscribers[event.Type] {
-		go func(subsciber Subscriber) {
-			subsciber.HandleEvent(event)
+		go func(subscriber Subscriber) {
+			subscriber.HandleEvent(event)
 		}(subscriber)
 	}
 }

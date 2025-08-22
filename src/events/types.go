@@ -8,7 +8,7 @@ import (
 type EventType int
 
 const (
-	UserInputEvent = iota + 1
+	UserInputEvent = EventType(iota + 1)
 	ToolCallEvent
 	AcceptToolEvent
 	RequestEnvironmentEvent
