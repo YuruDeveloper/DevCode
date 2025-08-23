@@ -15,7 +15,7 @@ type SelectKeyMap struct {
 	Quit   key.Binding
 }
 
-func NewDefualtSelectKeyMap() SelectKeyMap {
+func NewDefaultSelectKeyMap() SelectKeyMap {
 	return SelectKeyMap{
 		Up: key.NewBinding(
 			key.WithKeys(tea.KeyUp.String(), "w"),
@@ -36,7 +36,7 @@ func NewSelectModel(choices []string, selectCallBack func(int), quitCallBack fun
 	return &SelectModel{
 		Choices:        choices,
 		SecltedIndex:   0,
-		Keys:           NewDefualtSelectKeyMap(),
+		Keys:           NewDefaultSelectKeyMap(),
 		SelectCallBack: selectCallBack,
 		QuitCallBack:   quitCallBack,
 		Style:          style,

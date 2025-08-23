@@ -3,8 +3,6 @@ package viewinterface
 import (
 	"UniCode/src/events"
 	"UniCode/src/types"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -35,13 +33,9 @@ type MainKeyMap struct {
 	Exit   key.Binding
 }
 
-type ToolStatusUpdate struct{}
 
-type ToolStatusEnd struct {
-	Info string
-}
 
-func NewDefualtMainKeyMap() MainKeyMap {
+func NewDefaultMainKeyMap() MainKeyMap {
 	return MainKeyMap{
 		Choice: key.NewBinding(
 			key.WithKeys(tea.KeyEnter.String()),
@@ -80,8 +74,8 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 		SessionUUID: uuid.New(),
 		Status:      UserInput,
 		MessagePort: view,
-		Keys:        NewDefualtMainKeyMap(),
-		ActiveTools: make(map[string]types.ToolUseReportData),
+		Keys:        NewDefaultMainKeyMap(),
+		ActiveTools: make(map[uuid.UUID]*ToolModel),
 		ToolBlinkShow: true,
 	}
 	bus.Subscribe(events.StreamChunkParsedEvent, model)
@@ -101,7 +95,7 @@ type MainModel struct {
 	Program          *tea.Program
 	AssistantMessage string
 	Keys             MainKeyMap
-	ActiveTools map[string]types.ToolUseReportData
+	ActiveTools map[uuid.UUID]*ToolModel
 	ToolBlinkShow bool
 }
 
@@ -129,26 +123,12 @@ func (instance *MainModel) HandleEvent(event events.Event) {
 		}
 	case events.ToolUseReportEvent:
 		data := event.Data.(types.ToolUseReportData)
-		if data.ToolStatus != types.Call {
-			delete(instance.ActiveTools,data.ToolCall.String())
-			statusSymbol := lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(10))
-			if data.ToolStatus == types.Error {
-				statusSymbol.Foreground(lipgloss.ANSIColor(9))
-			}
-			if instance.Program != nil {
-				instance.Program.Send(ToolStatusEnd {
-					Info: fmt.Sprintf("%s %s",statusSymbol.Render("●"),data.ToolInfo),
-				})
-			}
-		} else {
-			instance.ActiveTools[data.ToolCall.String()] = data
-			if instance.Program != nil {
-				instance.Program.Send(ToolStatusUpdate{})
-			}
+		if instance.Program != nil {
+			instance.Program.Send(data)
 		}
 	case events.RequestToolUseEvent:
-		//creet tool stauts view
-		//show tool use desision add 
+		//create tool status view
+		//show tool use decision add 
 	}
 
 }
@@ -158,9 +138,8 @@ func (instance *MainModel) GetID() types.Source {
 }
 
 func (instance *MainModel) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink,tea.Tick(time.Millisecond * 500, func (time.Time) tea.Msg { return  ToolStatusUpdate{}}))
+	return textinput.Blink
 }
-
 func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -199,10 +178,20 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			instance.MessagePort.Height = 0
 			instance.Status = UserInput
 		}
-	case ToolStatusEnd:
-		cmd = tea.Println(msg.Info)
-		cmds = append(cmds, cmd)
-	case ToolStatusUpdate:
+	case types.ToolUseReportData:
+		if msg.ToolStatus != types.Call {
+			model := instance.ActiveTools[msg.ToolCall]
+			model.Update(UpdateStatus{ NewStauts: msg.ToolStatus })
+			delete(instance.ActiveTools,msg.ToolCall)
+			instance.AssistantMessage += model.View() + "\n"
+		} else {
+			instance.ActiveTools[msg.ToolCall] = NewToolModel(msg.ToolInfo) 
+		}
+	}
+	if len(instance.ActiveTools) != 0 {
+		for _ , model := range instance.ActiveTools {
+			model.Update(msg)
+		} 
 	}
 	instance.MessagePort, cmd = instance.MessagePort.Update(msg)
 	if cmd != nil {
@@ -220,26 +209,19 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (instance *MainModel) View() string {
-	return lipgloss.JoinVertical(lipgloss.Left, instance.MessagePort.View(), instance.ToolCallView(),instance.InputPort.View())
+	 list := make([]string,0,3)
+	 if instance.MessagePort.Height != 0 {
+		list = append(list, instance.MessagePort.View())
+	 }
+	 if len(instance.ActiveTools) > 0 {
+		for _ , toolview := range instance.ActiveTools {
+			list = append(list, toolview.View())
+		}
+	 }
+	 list = append(list, instance.InputPort.View())
+	return lipgloss.JoinVertical(lipgloss.Left,list...)
 }
 
-func (instance *MainModel) ToolCallView() string {
-	if len(instance.ActiveTools) == 0 {
-		return ""
-	}
-	var builder strings.Builder
-	for _ , tool := range instance.ActiveTools {
-		symbol := " "
-		if instance.ToolBlinkShow {
-			symbol = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(8)).Render("●")
-			instance.ToolBlinkShow = false
-		} else {
-			instance.ToolBlinkShow = true
-		}
-		builder.WriteString(fmt.Sprintf("%s %s\n",symbol,tool.ToolInfo))
-	}
-	return builder.String()
-}
 
 func (instance *MainModel) AddToAssistantMessage(newContent string) {
 	if len(instance.AssistantMessage) == 0 {
