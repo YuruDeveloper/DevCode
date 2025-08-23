@@ -1,9 +1,9 @@
-package service
+package history
 
 import (
+	"UniCode/src/constants"
+	"UniCode/src/dto"
 	"UniCode/src/events"
-	"UniCode/src/types"
-
 	"github.com/google/uuid"
 )
 
@@ -17,18 +17,18 @@ func NewHistoryService(bus *events.EventBus) *HistoryService {
 
 type HistoryService struct {
 	Bus             *events.EventBus
-	EnvironmentData types.EnvironmentUpdateData
+	EnvironmentData dto.EnvironmentUpdateData
 	ParentUUID      uuid.UUID
 }
 
 func (instance *HistoryService) HandleEvent(event events.Event) {
 	switch event.Type {
 	case events.UpdateEnvironmentEvent:
-		instance.EnvironmentData = event.Data.(types.EnvironmentUpdateData)
+		instance.EnvironmentData = event.Data.(dto.EnvironmentUpdateData)
 
 	}
 }
 
-func (instance *HistoryService) GetID() types.Source {
-	return types.HistoryService
+func (instance *HistoryService) GetID() constants.Source {
+	return constants.HistoryService
 }

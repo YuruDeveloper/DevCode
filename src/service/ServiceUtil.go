@@ -1,12 +1,12 @@
 package service
 
 import (
+	"UniCode/src/constants"
 	"UniCode/src/events"
-	"UniCode/src/types"
 	"time"
 )
 
-func PublishEvent(bus *events.EventBus, eventType events.EventType, data any, source types.Source) {
+func PublishEvent(bus events.Bus, eventType events.EventType, data any, source constants.Source) {
 	bus.Publish(
 		events.Event{
 			Type:      eventType,

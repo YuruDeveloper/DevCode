@@ -1,8 +1,9 @@
 package viewinterface
 
 import (
+	"UniCode/src/constants"
+	"UniCode/src/dto"
 	"UniCode/src/events"
-	"UniCode/src/types"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -32,8 +33,6 @@ type MainKeyMap struct {
 	Cancel key.Binding
 	Exit   key.Binding
 }
-
-
 
 func NewDefaultMainKeyMap() MainKeyMap {
 	return MainKeyMap{
@@ -69,13 +68,13 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 	})
 	view := viewport.New(1, 0)
 	model := &MainModel{
-		InputPort:   text,
-		Bus:         bus,
-		SessionUUID: uuid.New(),
-		Status:      UserInput,
-		MessagePort: view,
-		Keys:        NewDefaultMainKeyMap(),
-		ActiveTools: make(map[uuid.UUID]*ToolModel),
+		InputPort:     text,
+		Bus:           bus,
+		SessionUUID:   uuid.New(),
+		Status:        UserInput,
+		MessagePort:   view,
+		Keys:          NewDefaultMainKeyMap(),
+		ActiveTools:   make(map[uuid.UUID]*ToolModel),
 		ToolBlinkShow: true,
 	}
 	bus.Subscribe(events.StreamChunkParsedEvent, model)
@@ -95,8 +94,8 @@ type MainModel struct {
 	Program          *tea.Program
 	AssistantMessage string
 	Keys             MainKeyMap
-	ActiveTools map[uuid.UUID]*ToolModel
-	ToolBlinkShow bool
+	ActiveTools      map[uuid.UUID]*ToolModel
+	ToolBlinkShow    bool
 }
 
 func (instance *MainModel) SetProgram(program *tea.Program) {
@@ -106,7 +105,7 @@ func (instance *MainModel) SetProgram(program *tea.Program) {
 func (instance *MainModel) HandleEvent(event events.Event) {
 	switch event.Type {
 	case events.StreamChunkParsedEvent:
-		data := event.Data.(types.ParsedChunkData)
+		data := event.Data.(dto.ParsedChunkData)
 		if data.RequestUUID == instance.MessageUUID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
 				Content:    data.Content,
@@ -114,7 +113,7 @@ func (instance *MainModel) HandleEvent(event events.Event) {
 			})
 		}
 	case events.StreamChunkParsedErrorEvent:
-		data := event.Data.(types.ParsedChunkErrorData)
+		data := event.Data.(dto.ParsedChunkErrorData)
 		if data.RequestUUID == instance.MessageUUID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
 				Content:    data.Error,
@@ -122,19 +121,19 @@ func (instance *MainModel) HandleEvent(event events.Event) {
 			})
 		}
 	case events.ToolUseReportEvent:
-		data := event.Data.(types.ToolUseReportData)
+		data := event.Data.(dto.ToolUseReportData)
 		if instance.Program != nil {
 			instance.Program.Send(data)
 		}
 	case events.RequestToolUseEvent:
 		//create tool status view
-		//show tool use decision add 
+		//show tool use decision add
 	}
 
 }
 
-func (instance *MainModel) GetID() types.Source {
-	return types.Model
+func (instance *MainModel) GetID() constants.Source {
+	return constants.Model
 }
 
 func (instance *MainModel) Init() tea.Cmd {
@@ -153,7 +152,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, instance.Keys.Choice) && instance.Status != ToolDecision:
 			if instance.Status == UserInput {
 				instance.MessageUUID = uuid.New()
-				instance.PublishEvent(events.UserInputEvent, types.RequestData{
+				instance.PublishEvent(events.UserInputEvent, dto.UserRequestData{
 					SessionUUID: instance.SessionUUID,
 					RequestUUID: instance.MessageUUID,
 					Message:     instance.InputPort.Value(),
@@ -164,7 +163,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			instance.InputPort.Reset()
 			return instance, cmd
 		case key.Matches(msg, instance.Keys.Cancel) && instance.Status != ToolDecision:
-			instance.PublishEvent(events.StreamCancelEvent, types.StreamCancelData{
+			instance.PublishEvent(events.StreamCancelEvent, dto.StreamCancelData{
 				RequestUUID: instance.MessageUUID,
 			})
 		}
@@ -178,22 +177,22 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			instance.MessagePort.Height = 0
 			instance.Status = UserInput
 		}
-	case types.ToolUseReportData:
-		if msg.ToolStatus != types.Call {
+	case dto.ToolUseReportData:
+		if msg.ToolStatus != constants.Call {
 			model := instance.ActiveTools[msg.ToolCall]
 			if model != nil {
-				updatedModel, _ := model.Update(UpdateStatus{ NewStauts: msg.ToolStatus })
+				updatedModel, _ := model.Update(UpdateStatus{NewStauts: msg.ToolStatus})
 				instance.AssistantMessage += updatedModel.View() + "\n"
-				delete(instance.ActiveTools,msg.ToolCall)
+				delete(instance.ActiveTools, msg.ToolCall)
 			}
 		} else {
-			instance.ActiveTools[msg.ToolCall] = NewToolModel(msg.ToolInfo) 
+			instance.ActiveTools[msg.ToolCall] = NewToolModel(msg.ToolInfo)
 		}
 	}
 	if len(instance.ActiveTools) != 0 {
-		for _ , model := range instance.ActiveTools {
+		for _, model := range instance.ActiveTools {
 			model.Update(msg)
-		} 
+		}
 	}
 	instance.MessagePort, cmd = instance.MessagePort.Update(msg)
 	if cmd != nil {
@@ -211,19 +210,18 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (instance *MainModel) View() string {
-	 list := make([]string,0,3)
-	 if instance.MessagePort.Height != 0 {
+	list := make([]string, 0, 3)
+	if instance.MessagePort.Height != 0 {
 		list = append(list, instance.MessagePort.View())
-	 }
-	 if len(instance.ActiveTools) > 0 {
-		for _ , toolview := range instance.ActiveTools {
+	}
+	if len(instance.ActiveTools) > 0 {
+		for _, toolview := range instance.ActiveTools {
 			list = append(list, toolview.View())
 		}
-	 }
-	 list = append(list, instance.InputPort.View())
-	return lipgloss.JoinVertical(lipgloss.Left,list...)
+	}
+	list = append(list, instance.InputPort.View())
+	return lipgloss.JoinVertical(lipgloss.Left, list...)
 }
-
 
 func (instance *MainModel) AddToAssistantMessage(newContent string) {
 	if len(instance.AssistantMessage) == 0 {
@@ -247,7 +245,7 @@ func (instance *MainModel) PublishEvent(eventType events.EventType, data any) {
 			Type:      eventType,
 			Data:      data,
 			Timestamp: time.Now(),
-			Source:    types.Model,
+			Source:    constants.Model,
 		},
 	)
 }

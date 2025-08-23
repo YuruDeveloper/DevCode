@@ -1,24 +1,28 @@
-package service
+package eniroment
 
 import (
+	"UniCode/src/constants"
+	"UniCode/src/dto"
 	"UniCode/src/events"
-	"UniCode/src/types"
+	"UniCode/src/service"
 	"os"
 	"os/exec"
 	"runtime"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
-func NewEnvironmentService(bus *events.EventBus) *EnvironmentService {
-	service := &EnvironmentService{Bus: bus}
+func NewEnvironmentService(bus events.Bus, logger *zap.Logger) *EnvironmentService {
+	service := &EnvironmentService{bus: bus, logger: logger}
 	bus.Subscribe(events.RequestEnvironmentEvent, service)
 	return service
 }
 
 type EnvironmentService struct {
-	Bus *events.EventBus
+	bus    events.Bus
+	logger *zap.Logger
 }
 
 func (instance *EnvironmentService) HandleEvent(event events.Event) {
@@ -29,8 +33,8 @@ func (instance *EnvironmentService) HandleEvent(event events.Event) {
 		cmd = exec.Command("uname", "-r")
 		cmd.Run()
 		version, _ := cmd.Output()
-		PublishEvent(instance.Bus, events.UpdateEnvironmentEvent,
-			types.EnvironmentUpdateData{
+		service.PublishEvent(instance.bus, events.UpdateEnvironmentEvent,
+			dto.EnvironmentUpdateData{
 				CreateUUID:         uuid.New(),
 				Cwd:                cwd,
 				OS:                 runtime.GOOS,
@@ -38,10 +42,10 @@ func (instance *EnvironmentService) HandleEvent(event events.Event) {
 				IsDirectoryGitRepo: gitErr == nil,
 				TodayDate:          time.Now().Format("2006-01-02"),
 			},
-			types.EnvironmentService)
+			constants.EnvironmentService)
 	}
 }
 
-func (instance *EnvironmentService) GetID() types.Source {
-	return types.EnvironmentService
+func (instance *EnvironmentService) GetID() constants.Source {
+	return constants.EnvironmentService
 }

@@ -60,19 +60,6 @@ func (instance Success) Content() (*mcp.TextContent, error) {
 	}, err
 }
 
-type Fail struct {
-	Success   bool      `json:"success"`
-	Error     string    `json:"error"`
-	ErrorCode ErrorCode `json:"error_code"`
-}
-
-func (instance Fail) Content() (*mcp.TextContent, error) {
-	jsonText, err := json.Marshal(instance)
-	return &mcp.TextContent{
-		Text: string(jsonText),
-	}, err
-}
-
 type Tool struct {
 }
 
@@ -84,7 +71,7 @@ func (instance *Tool) Description() string {
 	return ReadDescription
 }
 
-func (instance *Tool) Handler() mcp.ToolHandlerFor[Input,any] {
+func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
 	return func(ctx context.Context, session *mcp.ServerSession, params *mcp.CallToolParamsFor[Input]) (*mcp.CallToolResultFor[any], error) {
 		input := params.Arguments
 		if input.FilePath == "" {
