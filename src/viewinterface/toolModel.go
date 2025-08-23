@@ -44,6 +44,9 @@ func (instance *ToolModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(9)).Render(StatusLight)
 			case types.Success:
 				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(10)).Render(StatusLight)
+			default:
+				// 예상치 못한 상태인 경우 노란색으로 표시
+				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(11)).Render(StatusLight)
 			}
 			instance.Status.SetChar(newChar)
 			instance.Status.SetMode(cursor.CursorStatic)

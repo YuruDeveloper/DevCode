@@ -84,37 +84,21 @@ func (instance *Tool) Description() string {
 	return ReadDescription
 }
 
-func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
+func (instance *Tool) Handler() mcp.ToolHandlerFor[Input,any] {
 	return func(ctx context.Context, session *mcp.ServerSession, params *mcp.CallToolParamsFor[Input]) (*mcp.CallToolResultFor[any], error) {
 		input := params.Arguments
 		if input.FilePath == "" {
-			return tools.TextReturn(Fail{
-				Success:   false,
-				Error:     "Invalid path format: " + input.FilePath,
-				ErrorCode: InvalidPath,
-			})
+			return nil, fmt.Errorf("invalid path format: %s", input.FilePath)
 		}
 		if _, err := os.Stat(input.FilePath); os.IsNotExist(err) {
-			return tools.TextReturn(Fail{
-				Success:   false,
-				Error:     "File not found: " + input.FilePath,
-				ErrorCode: FileNotFound,
-			})
+			return nil, fmt.Errorf("file not found: %s", input.FilePath)
 		}
 		file, err := os.Open(input.FilePath)
 		if err != nil {
 			if os.IsPermission(err) {
-				return tools.TextReturn(Fail{
-					Success:   false,
-					Error:     "Permission denied: " + input.FilePath,
-					ErrorCode: PermissionDenied,
-				})
+				return nil, fmt.Errorf("permission denied: %s", input.FilePath)
 			}
-			return tools.TextReturn(Fail{
-				Success:   false,
-				Error:     "Invalid path format: " + input.FilePath,
-				ErrorCode: InvalidPath,
-			})
+			return nil, fmt.Errorf("invalid path format: %s", input.FilePath)
 		}
 		defer file.Close()
 		scanner := bufio.NewScanner(file)

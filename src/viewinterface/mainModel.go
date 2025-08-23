@@ -181,9 +181,11 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case types.ToolUseReportData:
 		if msg.ToolStatus != types.Call {
 			model := instance.ActiveTools[msg.ToolCall]
-			model.Update(UpdateStatus{ NewStauts: msg.ToolStatus })
-			delete(instance.ActiveTools,msg.ToolCall)
-			instance.AssistantMessage += model.View() + "\n"
+			if model != nil {
+				updatedModel, _ := model.Update(UpdateStatus{ NewStauts: msg.ToolStatus })
+				instance.AssistantMessage += updatedModel.View() + "\n"
+				delete(instance.ActiveTools,msg.ToolCall)
+			}
 		} else {
 			instance.ActiveTools[msg.ToolCall] = NewToolModel(msg.ToolInfo) 
 		}
