@@ -10,7 +10,7 @@ import (
 )
 
 func NewEventBus(logger *zap.Logger) (*EventBus, error) {
-	pool, err := ants.NewPool(10000, nil)
+	pool, err := ants.NewPool(10000,ants.WithPreAlloc(true))
 	if err != nil {
 		return nil, fmt.Errorf("fail to create ants pool : %w", err)
 	}

@@ -1,4 +1,4 @@
-package eniroment
+package environment
 
 import (
 	"UniCode/src/constants"

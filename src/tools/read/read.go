@@ -97,7 +97,7 @@ func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
 			if totalLines < input.Offset {
 				continue
 			}
-			if input.Limit > 0 && readLines > input.Limit {
+			if input.Limit > 0 && readLines >= input.Limit {
 				continue
 			}
 			fmt.Fprintf(&content, "%6d\t%s\n", totalLines, scanner.Text())

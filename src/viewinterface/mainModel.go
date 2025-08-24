@@ -75,7 +75,6 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 		MessagePort:   view,
 		Keys:          NewDefaultMainKeyMap(),
 		ActiveTools:   make(map[uuid.UUID]*ToolModel),
-		ToolBlinkShow: true,
 	}
 	bus.Subscribe(events.StreamChunkParsedEvent, model)
 	bus.Subscribe(events.StreamChunkParsedErrorEvent, model)
@@ -95,7 +94,6 @@ type MainModel struct {
 	AssistantMessage string
 	Keys             MainKeyMap
 	ActiveTools      map[uuid.UUID]*ToolModel
-	ToolBlinkShow    bool
 }
 
 func (instance *MainModel) SetProgram(program *tea.Program) {

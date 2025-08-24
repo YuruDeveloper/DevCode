@@ -32,7 +32,6 @@ type ToolRawResultData struct {
 	RequestUUID uuid.UUID
 	ToolCall    uuid.UUID
 	Result      *mcp.CallToolResult
-	Error       error
 }
 
 type ToolUseReportData struct {

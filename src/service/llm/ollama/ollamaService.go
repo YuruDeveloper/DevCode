@@ -55,7 +55,7 @@ type OllamaService struct {
 func NewOllamaService(bus events.Bus, logger *zap.Logger) (*OllamaService, error) {
 
 	requireds := []string{"ollama.url", "ollama.model", "prompt.system"}
-	data := make([]string, 0, 3)
+	data := make([]string,3)
 	for index, required := range requireds {
 		data[index] = viper.GetString(required)
 	}
@@ -100,6 +100,7 @@ func NewOllamaService(bus events.Bus, logger *zap.Logger) (*OllamaService, error
 		model:           data[1],
 		ctx:             ctx,
 		bus:             bus,
+		logger:          logger,
 		systemMessages:  systemMessages,
 		messages:        make([]api.Message, 0, 100),
 		tools:           make([]api.Tool, 0, 10),

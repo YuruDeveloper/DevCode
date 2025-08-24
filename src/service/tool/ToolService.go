@@ -68,9 +68,9 @@ func (instance *ToolService) ProcessUserDecision(data dto.UserDecisionData) {
 
 func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 	var builder strings.Builder
-	if data.Error != nil {
+	if data.Result.IsError  {
 		builder.WriteString("<tool_use_error>\n")
-		builder.WriteString(data.Error.Error() + "\n")
+		builder.WriteString(data.Result.Content[0].(*mcp.TextContent).Text + "\n")
 		builder.WriteString("</tool_use_error>\n")
 		service.PublishEvent(instance.bus, events.ToolResultEvent, dto.ToolResultData{
 			RequestUUID: data.RequestUUID,
