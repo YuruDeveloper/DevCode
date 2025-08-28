@@ -17,7 +17,6 @@ func main() {
 	viper.SetConfigFile("env.toml")
 	viper.ReadInConfig()
 
-
 	bus, err := events.NewEventBus()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to config event bus: %v", err))

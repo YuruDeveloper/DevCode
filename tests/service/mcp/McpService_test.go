@@ -51,7 +51,7 @@ func TestMcpService_ToolHandling(t *testing.T) {
 			require.True(t, ok, "이벤트 데이터 타입이 올바르지 않음")
 
 			assert.Equal(t, toolCallData.RequestUUID, data.RequestUUID)
-			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCall)
+			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCallUUID)
 			assert.NotNil(t, data.Result)
 
 		case <-time.After(100 * time.Millisecond):
@@ -86,7 +86,7 @@ func TestMcpService_ToolHandling(t *testing.T) {
 			require.True(t, ok, "이벤트 데이터 타입이 올바르지 않음")
 
 			assert.Equal(t, toolCallData.RequestUUID, data.RequestUUID)
-			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCall)
+			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCallUUID)
 			assert.NotNil(t, data.Result)
 			assert.True(t, data.Result.IsError)
 
@@ -167,9 +167,9 @@ func (m *MockMcpService) publishToolResult(data dto.ToolCallData, result *mcp.Ca
 	event := events.Event{
 		Type: events.ToolRawResultEvent,
 		Data: dto.ToolRawResultData{
-			RequestUUID: data.RequestUUID,
-			ToolCall:    data.ToolCallUUID,
-			Result:      result,
+			RequestUUID:  data.RequestUUID,
+			ToolCallUUID: data.ToolCallUUID,
+			Result:       result,
 		},
 		Timestamp: time.Now(),
 		Source:    constants.McpService,

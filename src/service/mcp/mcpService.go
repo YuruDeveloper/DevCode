@@ -25,7 +25,7 @@ type McpService struct {
 func NewMcpService(bus *events.EventBus) *McpService {
 
 	requireds := []string{"mcp.name", "mcp.version", "server.name", "server.version"}
-	data := make([]string,4)
+	data := make([]string, 4)
 	for index, required := range requireds {
 		data[index] = viper.GetString(required)
 	}
@@ -51,7 +51,7 @@ func NewMcpService(bus *events.EventBus) *McpService {
 
 	go func() {
 		if err := service.toolServer.Run(service.ctx, serverTran); err != nil {
-		} 
+		}
 	}()
 
 	service.clientSession, _ = service.client.Connect(service.ctx, clientTrans)
@@ -94,24 +94,24 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 	result, err := instance.clientSession.CallTool(instance.ctx, params)
 
 	if err != nil {
-		service.PublishEvent(instance.bus,events.ToolRawResultEvent,dto.ToolRawResultData{
-			RequestUUID: data.RequestUUID,
-			ToolCall: data.ToolCallUUID,
-			Result: &mcp.CallToolResult {
+		service.PublishEvent(instance.bus, events.ToolRawResultEvent, dto.ToolRawResultData{
+			RequestUUID:  data.RequestUUID,
+			ToolCallUUID: data.ToolCallUUID,
+			Result: &mcp.CallToolResult{
 				IsError: true,
-				Content: []mcp.Content {
+				Content: []mcp.Content{
 					&mcp.TextContent{
-						Text: fmt.Sprintf("Tool Call Error : %v",err),
+						Text: fmt.Sprintf("Tool Call Error : %v", err),
 					},
 				},
 			},
-		},constants.McpService)
+		}, constants.McpService)
 		return
 	}
 	service.PublishEvent(instance.bus, events.ToolRawResultEvent, dto.ToolRawResultData{
-		RequestUUID: data.RequestUUID,
-		ToolCall:    data.ToolCallUUID,
-		Result:      result,
+		RequestUUID:  data.RequestUUID,
+		ToolCallUUID: data.ToolCallUUID,
+		Result:       result,
 	}, constants.McpService)
 }
 

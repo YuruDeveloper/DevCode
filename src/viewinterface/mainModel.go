@@ -28,25 +28,17 @@ type StreamUpdate struct {
 	IsComplete bool
 }
 
-type MainKeyMap struct {
-	Choice key.Binding
-	Cancel key.Binding
-	Exit   key.Binding
+type PendingTool struct {
+	RequestUUID  uuid.UUID
+	ToolCallUUID uuid.UUID
 }
 
-func NewDefaultMainKeyMap() MainKeyMap {
-	return MainKeyMap{
-		Choice: key.NewBinding(
-			key.WithKeys(tea.KeyEnter.String()),
-		),
-		Cancel: key.NewBinding(
-			key.WithKeys(tea.KeyEsc.String()),
-		),
-		Exit: key.NewBinding(
-			key.WithKeys(tea.KeyCtrlC.String()),
-		),
-	}
-}
+
+const (
+	Dot = "●"
+)
+
+
 func NewMainModel(bus *events.EventBus) *MainModel {
 	text := textarea.New()
 	text.Focus()
@@ -67,15 +59,27 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 		return ""
 	})
 	view := viewport.New(1, 0)
+
+	selectModel := NewSelectModel(
+		[]string{"yes", "no"},
+		 nil, 
+		 nil,
+		  lipgloss.NewStyle().
+		  Border(lipgloss.RoundedBorder()).
+		  BorderForeground(lipgloss.ANSIColor(32)))
 	model := &MainModel{
-		InputPort:     text,
-		Bus:           bus,
-		SessionUUID:   uuid.New(),
-		Status:        UserInput,
-		MessagePort:   view,
-		Keys:          NewDefaultMainKeyMap(),
-		ActiveTools:   make(map[uuid.UUID]*ToolModel),
+		InputPort:        text,
+		Bus:              bus,
+		SessionUUID:      uuid.New(),
+		Status:           UserInput,
+		MessagePort:      view,
+		Keys:             NewDefaultMainKeyMap(),
+		ActiveTools:      make(map[uuid.UUID]*ToolModel),
+		PendingToolStack: make([]*PendingTool, 0, 5),
+		SelectModel:      selectModel,
 	}
+	model.SelectModel.SelectCallBack = model.Select
+	model.SelectModel.QuitCallBack = model.Quit
 	bus.Subscribe(events.StreamChunkParsedEvent, model)
 	bus.Subscribe(events.StreamChunkParsedErrorEvent, model)
 	bus.Subscribe(events.RequestToolUseEvent, model)
@@ -94,6 +98,8 @@ type MainModel struct {
 	AssistantMessage string
 	Keys             MainKeyMap
 	ActiveTools      map[uuid.UUID]*ToolModel
+	PendingToolStack []*PendingTool
+	SelectModel      *SelectModel
 }
 
 func (instance *MainModel) SetProgram(program *tea.Program) {
@@ -124,10 +130,15 @@ func (instance *MainModel) HandleEvent(event events.Event) {
 			instance.Program.Send(data)
 		}
 	case events.RequestToolUseEvent:
-		//create tool status view
-		//show tool use decision add
+		data := event.Data.(dto.ToolUseReportData)
+		if instance.Program != nil {
+			instance.Program.Send(data)
+			instance.Program.Send(PendingTool{
+				RequestUUID:  data.RequestUUID,
+				ToolCallUUID: data.ToolCallUUID,
+			})
+		}
 	}
-
 }
 
 func (instance *MainModel) GetID() constants.Source {
@@ -177,15 +188,17 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case dto.ToolUseReportData:
 		if msg.ToolStatus != constants.Call {
-			model := instance.ActiveTools[msg.ToolCall]
+			model := instance.ActiveTools[msg.ToolCallUUID]
 			if model != nil {
 				updatedModel, _ := model.Update(UpdateStatus{NewStauts: msg.ToolStatus})
 				instance.AssistantMessage += updatedModel.View() + "\n"
-				delete(instance.ActiveTools, msg.ToolCall)
+				delete(instance.ActiveTools, msg.ToolCallUUID)
 			}
 		} else {
-			instance.ActiveTools[msg.ToolCall] = NewToolModel(msg.ToolInfo)
+			instance.ActiveTools[msg.ToolCallUUID] = NewToolModel(msg.ToolInfo)
 		}
+	case PendingTool:
+		instance.PendingToolStack = append(instance.PendingToolStack, &msg)
 	}
 	if len(instance.ActiveTools) != 0 {
 		for _, model := range instance.ActiveTools {
@@ -196,14 +209,19 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if cmd != nil {
 		cmds = append(cmds, cmd)
 	}
+	if len(instance.PendingToolStack) != 0 {
+		instance.Status = ToolDecision
+		instance.SelectModel.Update(msg)
+	}
 	height := (instance.InputPort.Length()+1)/instance.InputPort.Width() + 1
 	height = min(height, 5)
 	instance.InputPort.SetHeight(height)
-	instance.InputPort, cmd = instance.InputPort.Update(msg)
-	if cmd != nil {
-		cmds = append(cmds, cmd)
+	if instance.Status != ToolDecision {
+		instance.InputPort, cmd = instance.InputPort.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
-
 	return instance, tea.Batch(cmds...)
 }
 
@@ -217,13 +235,57 @@ func (instance *MainModel) View() string {
 			list = append(list, toolview.View())
 		}
 	}
+	if instance.Status == ToolDecision {
+		list = append(list, instance.SelectModel.View())
+	}
 	list = append(list, instance.InputPort.View())
 	return lipgloss.JoinVertical(lipgloss.Left, list...)
 }
 
+func (instance *MainModel) Select(selectIndex int) {
+	if selectIndex == 0 {
+		instance.PublishEvent(
+			events.UserDecisionEvent,
+			dto.UserDecisionData{
+				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
+				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
+				Accept:       true,
+			},
+		)
+	} else {
+		instance.PublishEvent(
+			events.UserDecisionEvent,
+			dto.UserDecisionData{
+				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
+				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
+				Accept:       false,
+			},
+		)
+	}
+	instance.PendingToolStack = instance.PendingToolStack[1:]
+	if len(instance.PendingToolStack) == 0 {
+		instance.Status = AssistantInput
+	}
+}
+
+func (instance *MainModel) Quit() {
+	instance.PublishEvent(
+		events.UserDecisionEvent,
+		dto.UserDecisionData{
+			RequestUUID:  instance.PendingToolStack[0].RequestUUID,
+			ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
+			Accept:       false,
+		},
+	)
+	instance.PendingToolStack = instance.PendingToolStack[1:]
+	if len(instance.PendingToolStack) == 0 {
+		instance.Status = AssistantInput
+	}
+}
+
 func (instance *MainModel) AddToAssistantMessage(newContent string) {
 	if len(instance.AssistantMessage) == 0 {
-		instance.AssistantMessage = "● " + newContent
+		instance.AssistantMessage = Dot + " " + newContent
 	} else {
 		instance.AssistantMessage += newContent
 	}

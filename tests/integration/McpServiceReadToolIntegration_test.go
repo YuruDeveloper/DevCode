@@ -69,7 +69,7 @@ func TestMcpServiceReadToolIntegration(t *testing.T) {
 			require.True(t, ok, "이벤트 데이터 타입이 올바르지 않음")
 
 			assert.Equal(t, toolCallData.RequestUUID, data.RequestUUID)
-			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCall)
+			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCallUUID)
 			assert.NotNil(t, data.Result, "결과가 있어야 함")
 
 			textContent, ok := data.Result.Content[0].(*mcp.TextContent)
@@ -119,13 +119,13 @@ func TestMcpServiceReadToolIntegration(t *testing.T) {
 			require.True(t, ok, "이벤트 데이터 타입이 올바르지 않음")
 
 			assert.Equal(t, toolCallData.RequestUUID, data.RequestUUID)
-			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCall)
-			
+			assert.Equal(t, toolCallData.ToolCallUUID, data.ToolCallUUID)
+
 			if data.Result != nil && data.Result.IsError {
 				assert.True(t, data.Result.IsError, "IsError 플래그가 설정되어야 함")
 				if len(data.Result.Content) > 0 {
 					if textContent, ok := data.Result.Content[0].(*mcp.TextContent); ok {
-						assert.Contains(t, textContent.Text, "Tool Call Error")
+						assert.Contains(t, textContent.Text, "file not found")
 					}
 				}
 			}

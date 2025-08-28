@@ -17,7 +17,7 @@ func NewMessageService(bus events.Bus) *MessageService {
 }
 
 type MessageService struct {
-	bus    events.Bus
+	bus events.Bus
 }
 
 func (instance *MessageService) HandleEvent(event events.Event) {

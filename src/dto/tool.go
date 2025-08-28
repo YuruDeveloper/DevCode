@@ -23,20 +23,20 @@ type ToolCallData struct {
 }
 
 type ToolResultData struct {
-	RequestUUID uuid.UUID
-	ToolCall    uuid.UUID
-	ToolResult  string
+	RequestUUID  uuid.UUID
+	ToolCallUUID uuid.UUID
+	ToolResult   string
 }
 
 type ToolRawResultData struct {
-	RequestUUID uuid.UUID
-	ToolCall    uuid.UUID
-	Result      *mcp.CallToolResult
+	RequestUUID  uuid.UUID
+	ToolCallUUID uuid.UUID
+	Result       *mcp.CallToolResult
 }
 
 type ToolUseReportData struct {
-	RequestUUID uuid.UUID
-	ToolCall    uuid.UUID
-	ToolInfo    string
-	ToolStatus  constants.ToolStatus
+	RequestUUID  uuid.UUID
+	ToolCallUUID uuid.UUID
+	ToolInfo     string
+	ToolStatus   constants.ToolStatus
 }

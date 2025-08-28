@@ -9,7 +9,7 @@ import (
 )
 
 func NewEventBus() (*EventBus, error) {
-	pool, err := ants.NewPool(10000,ants.WithPreAlloc(true))
+	pool, err := ants.NewPool(10000, ants.WithPreAlloc(true))
 	if err != nil {
 		return nil, fmt.Errorf("fail to create ants pool : %w", err)
 	}
@@ -22,7 +22,6 @@ func NewEventBus() (*EventBus, error) {
 }
 
 type EventBus struct {
-
 	pool        *ants.Pool
 	subscribers map[EventType][]Subscriber
 	busMutex    sync.RWMutex

@@ -20,7 +20,7 @@ func NewEnvironmentService(bus events.Bus) *EnvironmentService {
 }
 
 type EnvironmentService struct {
-	bus    events.Bus
+	bus events.Bus
 }
 
 func (instance *EnvironmentService) HandleEvent(event events.Event) {

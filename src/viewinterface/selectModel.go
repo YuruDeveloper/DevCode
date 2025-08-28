@@ -8,29 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type SelectKeyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Choice key.Binding
-	Quit   key.Binding
-}
 
-func NewDefaultSelectKeyMap() SelectKeyMap {
-	return SelectKeyMap{
-		Up: key.NewBinding(
-			key.WithKeys(tea.KeyUp.String(), "w"),
-		),
-		Down: key.NewBinding(
-			key.WithKeys(tea.KeyDown.String(), "s"),
-		),
-		Choice: key.NewBinding(
-			key.WithKeys(tea.KeyEnter.String()),
-		),
-		Quit: key.NewBinding(
-			key.WithKeys(tea.KeyEsc.String()),
-		),
-	}
-}
 
 func NewSelectModel(choices []string, selectCallBack func(int), quitCallBack func(), style lipgloss.Style) *SelectModel {
 	return &SelectModel{

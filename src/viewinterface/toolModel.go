@@ -7,9 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const (
-	StatusLight = "●"
-)
 
 type UpdateStatus struct {
 	NewStauts constants.ToolStatus
@@ -17,7 +14,7 @@ type UpdateStatus struct {
 
 func NewToolModel(data string) *ToolModel {
 	light := cursor.New()
-	light.SetChar(lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(8)).Render(StatusLight))
+	light.SetChar(lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(8)).Render(Dot))
 	return &ToolModel{
 		Status:   light,
 		ToolInfo: data,
@@ -40,12 +37,12 @@ func (instance *ToolModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var newChar string
 			switch msg.NewStauts {
 			case constants.Error:
-				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(9)).Render(StatusLight)
+				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(9)).Render(Dot)
 			case constants.Success:
-				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(10)).Render(StatusLight)
+				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(10)).Render(Dot)
 			default:
 				// 예상치 못한 상태인 경우 노란색으로 표시
-				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(11)).Render(StatusLight)
+				newChar = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(11)).Render(Dot)
 			}
 			instance.Status.SetChar(newChar)
 			instance.Status.SetMode(cursor.CursorStatic)

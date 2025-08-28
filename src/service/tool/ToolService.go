@@ -54,10 +54,16 @@ func (instance *ToolService) ProcessUserDecision(data dto.UserDecisionData) {
 			builder.WriteString("User Reject Tool Use\n ")
 			builder.WriteString("</tool_use_error>\n")
 			service.PublishEvent(instance.bus, events.ToolResultEvent, dto.ToolResultData{
-				RequestUUID: data.RequestUUID,
-				ToolCall:    data.ToolCallUUID,
-				ToolResult:  builder.String(),
+				RequestUUID:  data.RequestUUID,
+				ToolCallUUID: data.ToolCallUUID,
+				ToolResult:   builder.String(),
 			}, constants.ToolService)
+			service.PublishEvent(instance.bus,events.ToolUseReportEvent,dto.ToolUseReportData {
+				RequestUUID: data.RequestUUID,
+				ToolCallUUID: data.ToolCallUUID,
+				ToolInfo: "",
+				ToolStatus: constants.Error,
+			},constants.ToolService)
 		}
 		delete(instance.toolCallBuffer, data.ToolCallUUID)
 	}
@@ -65,20 +71,20 @@ func (instance *ToolService) ProcessUserDecision(data dto.UserDecisionData) {
 
 func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 	var builder strings.Builder
-	if data.Result.IsError  {
+	if data.Result.IsError {
 		builder.WriteString("<tool_use_error>\n")
 		builder.WriteString(data.Result.Content[0].(*mcp.TextContent).Text + "\n")
 		builder.WriteString("</tool_use_error>\n")
 		service.PublishEvent(instance.bus, events.ToolResultEvent, dto.ToolResultData{
-			RequestUUID: data.RequestUUID,
-			ToolCall:    data.ToolCall,
-			ToolResult:  builder.String(),
+			RequestUUID:  data.RequestUUID,
+			ToolCallUUID: data.ToolCallUUID,
+			ToolResult:   builder.String(),
 		}, constants.ToolService)
 		service.PublishEvent(instance.bus, events.ToolUseReportEvent, dto.ToolUseReportData{
-			RequestUUID: data.RequestUUID,
-			ToolCall:    data.ToolCall,
-			ToolInfo:    "",
-			ToolStatus:  constants.Error,
+			RequestUUID:  data.RequestUUID,
+			ToolCallUUID: data.ToolCallUUID,
+			ToolInfo:     "",
+			ToolStatus:   constants.Error,
 		}, constants.ToolService)
 		return
 	}
@@ -88,24 +94,24 @@ func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 	}
 	builder.WriteString("</result>\n")
 	service.PublishEvent(instance.bus, events.ToolResultEvent, dto.ToolResultData{
-		RequestUUID: data.RequestUUID,
-		ToolCall:    data.ToolCall,
-		ToolResult:  builder.String(),
+		RequestUUID:  data.RequestUUID,
+		ToolCallUUID: data.ToolCallUUID,
+		ToolResult:   builder.String(),
 	}, constants.ToolService)
 	service.PublishEvent(instance.bus, events.ToolUseReportEvent, dto.ToolUseReportData{
-		RequestUUID: data.RequestUUID,
-		ToolCall:    data.ToolCall,
-		ToolInfo:    "",
-		ToolStatus:  constants.Success,
+		RequestUUID:  data.RequestUUID,
+		ToolCallUUID: data.ToolCallUUID,
+		ToolInfo:     "",
+		ToolStatus:   constants.Success,
 	}, constants.ToolService)
 }
 
 func (instance *ToolService) ProcessToolCall(data dto.ToolCallData) {
 	service.PublishEvent(instance.bus, events.ToolUseReportEvent, dto.ToolUseReportData{
-		RequestUUID: data.RequestUUID,
-		ToolCall:    data.ToolCallUUID,
-		ToolInfo:    instance.ToolInfo(data.ToolName, data.Parameters),
-		ToolStatus:  constants.Call,
+		RequestUUID:  data.RequestUUID,
+		ToolCallUUID: data.ToolCallUUID,
+		ToolInfo:     instance.ToolInfo(data.ToolName, data.Parameters),
+		ToolStatus:   constants.Call,
 	}, constants.ToolService)
 	for _, allowed := range instance.allowed {
 		if data.ToolName == allowed {
@@ -118,10 +124,10 @@ func (instance *ToolService) ProcessToolCall(data dto.ToolCallData) {
 	}
 	instance.toolCallBuffer[data.ToolCallUUID] = data
 	service.PublishEvent(instance.bus, events.RequestToolUseEvent, dto.ToolUseReportData{
-		RequestUUID: data.RequestUUID,
-		ToolCall:    data.ToolCallUUID,
-		ToolInfo:    instance.ToolInfo(data.ToolName, data.Parameters),
-		ToolStatus:  constants.Call,
+		RequestUUID:  data.RequestUUID,
+		ToolCallUUID: data.ToolCallUUID,
+		ToolInfo:     instance.ToolInfo(data.ToolName, data.Parameters),
+		ToolStatus:   constants.Call,
 	}, constants.ToolService)
 }
 

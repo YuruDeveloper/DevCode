@@ -53,7 +53,7 @@ type OllamaService struct {
 func NewOllamaService(bus events.Bus) (*OllamaService, error) {
 
 	requireds := []string{"ollama.url", "ollama.model", "prompt.system"}
-	data := make([]string,3)
+	data := make([]string, 3)
 	for index, required := range requireds {
 		data[index] = viper.GetString(required)
 	}
@@ -123,13 +123,13 @@ func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
 
-	if _, exists := instance.requestContents[data.RequestUUID].ToolCalls[data.ToolCall]; exists {
+	if _, exists := instance.requestContents[data.RequestUUID].ToolCalls[data.ToolCallUUID]; exists {
 		msg := api.Message{
 			Role:    "tool",
 			Content: data.ToolResult,
 		}
 		instance.messages = append(instance.messages, msg)
-		delete(instance.requestContents[data.RequestUUID].ToolCalls, data.ToolCall)
+		delete(instance.requestContents[data.RequestUUID].ToolCalls, data.ToolCallUUID)
 		if len(instance.requestContents[data.RequestUUID].ToolCalls) == 0 {
 			delete(instance.requestContents, data.RequestUUID)
 			instance.CallApi(data.RequestUUID)
