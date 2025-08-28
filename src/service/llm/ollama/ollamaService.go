@@ -18,7 +18,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ollama/ollama/api"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 const (
@@ -35,7 +34,6 @@ type OllamaService struct {
 	model  string
 	ctx    context.Context
 	bus    events.Bus
-	logger *zap.Logger
 
 	systemMessages []api.Message
 	messages       []api.Message
@@ -52,7 +50,7 @@ type OllamaService struct {
 	requestMutex    sync.RWMutex
 }
 
-func NewOllamaService(bus events.Bus, logger *zap.Logger) (*OllamaService, error) {
+func NewOllamaService(bus events.Bus) (*OllamaService, error) {
 
 	requireds := []string{"ollama.url", "ollama.model", "prompt.system"}
 	data := make([]string,3)
@@ -62,27 +60,18 @@ func NewOllamaService(bus events.Bus, logger *zap.Logger) (*OllamaService, error
 
 	parsedUrl, err := url.Parse(data[0])
 	if err != nil {
-		logger.Error("Failed to parse Ollama URL",
-			zap.String("url", data[0]),
-			zap.Error(err),
-		)
 		return nil, fmt.Errorf("invalid Ollama URL: %v", err)
 	}
 
 	ollamaClient := api.NewClient(parsedUrl, http.DefaultClient)
 
 	if data[2] == "" {
-		logger.Error("System prompt not configured")
 		return nil, fmt.Errorf("prompt.system not configured in env.toml")
 	}
 
 	systemPrompt, err := os.ReadFile(data[2])
 
 	if err != nil {
-		logger.Error("Failed to read system prompt file",
-			zap.String("file", data[2]),
-			zap.Error(err),
-		)
 		return nil, fmt.Errorf("fail to Read SystemPrompt %v", err)
 	}
 
@@ -100,7 +89,6 @@ func NewOllamaService(bus events.Bus, logger *zap.Logger) (*OllamaService, error
 		model:           data[1],
 		ctx:             ctx,
 		bus:             bus,
-		logger:          logger,
 		systemMessages:  systemMessages,
 		messages:        make([]api.Message, 0, 100),
 		tools:           make([]api.Tool, 0, 10),
@@ -135,9 +123,6 @@ func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
 
-	instance.logger.Debug("Processing tool result",
-		zap.String("requestUUID", data.RequestUUID.String()),
-		zap.String("toolCall", data.ToolCall.String()))
 	if _, exists := instance.requestContents[data.RequestUUID].ToolCalls[data.ToolCall]; exists {
 		msg := api.Message{
 			Role:    "tool",
@@ -171,7 +156,6 @@ func (instance *OllamaService) EnvironmentMessage() *api.Message {
 
 func (instance *OllamaService) UpdateToolList(data []*mcp.Tool) {
 	instance.tools = make([]api.Tool, 0, len(data))
-	instance.logger.Info("Updating tool list", zap.Int("toolCount", len(data)))
 	for _, tool := range data {
 		if tool == nil {
 			continue
@@ -253,11 +237,6 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 		})
 
 		if err != nil {
-			instance.logger.Error("Chat API call failed",
-				zap.String("requestUUID",
-					requestUUID.String()),
-				zap.Error(err),
-			)
 			instance.bus.Publish(
 				events.Event{
 					Type: events.StreamErrorEvent,
@@ -297,14 +276,8 @@ func (instance *OllamaService) Response(requestUUID uuid.UUID, response api.Chat
 	}
 
 	if len(response.Message.ToolCalls) > 0 {
-		instance.logger.Debug("Processing tool calls",
-			zap.String("requestUUID", requestUUID.String()),
-			zap.Int("toolCallCount", len(response.Message.ToolCalls)))
 		for _, call := range response.Message.ToolCalls {
 			toolCall := uuid.New()
-			instance.logger.Info("Tool call initiated",
-				zap.String("toolName", call.Function.Name),
-				zap.String("toolCallUUID", toolCall.String()))
 			service.PublishEvent(instance.bus, events.ToolCallEvent, dto.ToolCallData{
 				RequestUUID:  requestUUID,
 				ToolCallUUID: toolCall,
@@ -329,10 +302,6 @@ func (instance *OllamaService) Response(requestUUID uuid.UUID, response api.Chat
 }
 
 func (instance *OllamaService) CancelStream(requestUUID uuid.UUID) {
-	instance.logger.Info("Cancelling stream",
-		zap.String("requestUUID",
-			requestUUID.String()),
-	)
 	instance.streamMutex.RLock()
 	cancel, exists := instance.activeStreams[requestUUID]
 	instance.streamMutex.RUnlock()

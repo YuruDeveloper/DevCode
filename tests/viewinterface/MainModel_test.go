@@ -10,13 +10,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
-	logger := zap.NewNop()
-	bus, err := events.NewEventBus(logger)
+	bus, err := events.NewEventBus()
 	assert.NoError(t, err, "EventBus 생성 실패")
 	mainModel := viewinterface.NewMainModel(bus)
 	
@@ -59,8 +57,7 @@ func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 
 func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
-	logger := zap.NewNop()
-	bus, err := events.NewEventBus(logger)
+	bus, err := events.NewEventBus()
 	assert.NoError(t, err, "EventBus 생성 실패")
 	mainModel := viewinterface.NewMainModel(bus)
 	
@@ -98,8 +95,7 @@ func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 
 func TestMainModel_ToolSuccessDisplaysGreenLight(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화  
-	logger := zap.NewNop()
-	bus, err := events.NewEventBus(logger)
+	bus, err := events.NewEventBus()
 	assert.NoError(t, err, "EventBus 생성 실패")
 	mainModel := viewinterface.NewMainModel(bus)
 	

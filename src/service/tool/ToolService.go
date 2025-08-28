@@ -10,14 +10,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
-func NewToolService(bus *events.EventBus, logger *zap.Logger) *ToolService {
+func NewToolService(bus *events.EventBus) *ToolService {
 	service := &ToolService{
 		bus:     bus,
 		allowed: viper.GetStringSlice("tool.allowed"),
-		logger:  logger,
 	}
 	bus.Subscribe(events.ToolCallEvent, service)
 	bus.Subscribe(events.ToolRawResultEvent, service)
@@ -29,7 +27,6 @@ type ToolService struct {
 	bus            *events.EventBus
 	allowed        []string
 	toolCallBuffer map[uuid.UUID]dto.ToolCallData
-	logger         *zap.Logger
 }
 
 func (instance *ToolService) HandleEvent(event events.Event) {

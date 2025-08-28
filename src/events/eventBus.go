@@ -6,16 +6,15 @@ import (
 	"sync"
 
 	"github.com/panjf2000/ants/v2"
-	"go.uber.org/zap"
 )
 
-func NewEventBus(logger *zap.Logger) (*EventBus, error) {
+func NewEventBus() (*EventBus, error) {
 	pool, err := ants.NewPool(10000,ants.WithPreAlloc(true))
 	if err != nil {
 		return nil, fmt.Errorf("fail to create ants pool : %w", err)
 	}
 	return &EventBus{
-		logger:      logger,
+
 		pool:        pool,
 		subscribers: make(map[EventType][]Subscriber, 6),
 		busMutex:    sync.RWMutex{},
@@ -23,7 +22,7 @@ func NewEventBus(logger *zap.Logger) (*EventBus, error) {
 }
 
 type EventBus struct {
-	logger      *zap.Logger
+
 	pool        *ants.Pool
 	subscribers map[EventType][]Subscriber
 	busMutex    sync.RWMutex
@@ -32,10 +31,6 @@ type EventBus struct {
 func (instance *EventBus) Subscribe(eventType EventType, subscriber Subscriber) {
 	instance.busMutex.Lock()
 	defer instance.busMutex.Unlock()
-	instance.logger.Info("Event subscriber",
-		zap.String("Type", eventType.String()),
-		zap.String("subscriber", subscriber.GetID().String()),
-	)
 
 	instance.subscribers[eventType] = append(instance.subscribers[eventType], subscriber)
 }
@@ -60,10 +55,7 @@ func (instance *EventBus) Publish(event Event) {
 			func() {
 				defer func() {
 					if recover := recover(); recover != nil {
-						instance.logger.Error("Panicin subcriber",
-							zap.String("Source", subscriber.GetID().String()),
-							zap.Any("recover", recover),
-						)
+
 					}
 				}()
 				subscriber.HandleEvent(event)

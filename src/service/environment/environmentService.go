@@ -11,18 +11,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
-func NewEnvironmentService(bus events.Bus, logger *zap.Logger) *EnvironmentService {
-	service := &EnvironmentService{bus: bus, logger: logger}
+func NewEnvironmentService(bus events.Bus) *EnvironmentService {
+	service := &EnvironmentService{bus: bus}
 	bus.Subscribe(events.RequestEnvironmentEvent, service)
 	return service
 }
 
 type EnvironmentService struct {
 	bus    events.Bus
-	logger *zap.Logger
 }
 
 func (instance *EnvironmentService) HandleEvent(event events.Event) {

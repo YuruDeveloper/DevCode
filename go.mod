@@ -17,8 +17,6 @@ require (
 	github.com/panjf2000/ants/v2 v2.11.3
 	//setting
 	github.com/spf13/viper v1.20.1
-	//logger
-	go.uber.org/zap v1.27.0
 )
 
 require (

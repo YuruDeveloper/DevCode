@@ -5,11 +5,10 @@ import (
 	"DevCode/src/dto"
 	"DevCode/src/events"
 	"DevCode/src/service"
-	"go.uber.org/zap"
 )
 
-func NewMessageService(bus events.Bus, logger *zap.Logger) *MessageService {
-	service := &MessageService{bus: bus, logger: logger}
+func NewMessageService(bus events.Bus) *MessageService {
+	service := &MessageService{bus: bus}
 	bus.Subscribe(events.StreamStartEvent, service)
 	bus.Subscribe(events.StreamChunkEvent, service)
 	bus.Subscribe(events.StreamCompleteEvent, service)
@@ -19,7 +18,6 @@ func NewMessageService(bus events.Bus, logger *zap.Logger) *MessageService {
 
 type MessageService struct {
 	bus    events.Bus
-	logger *zap.Logger
 }
 
 func (instance *MessageService) HandleEvent(event events.Event) {
