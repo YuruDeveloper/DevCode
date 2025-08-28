@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"UniCode/src/constants"
+	"DevCode/src/constants"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

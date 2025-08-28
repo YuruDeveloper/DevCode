@@ -1,7 +1,7 @@
 package viewinterface
 
 import (
-	"UniCode/src/constants"
+	"DevCode/src/constants"
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"UniCode/src/constants"
-	"UniCode/src/events"
+	"DevCode/src/constants"
+	"DevCode/src/events"
 	"time"
 )
 

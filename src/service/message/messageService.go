@@ -1,10 +1,10 @@
 package message
 
 import (
-	"UniCode/src/constants"
-	"UniCode/src/dto"
-	"UniCode/src/events"
-	"UniCode/src/service"
+	"DevCode/src/constants"
+	"DevCode/src/dto"
+	"DevCode/src/events"
+	"DevCode/src/service"
 	"go.uber.org/zap"
 )
 

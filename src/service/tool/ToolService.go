@@ -1,10 +1,10 @@
 package tool
 
 import (
-	"UniCode/src/constants"
-	"UniCode/src/dto"
-	"UniCode/src/events"
-	"UniCode/src/service"
+	"DevCode/src/constants"
+	"DevCode/src/dto"
+	"DevCode/src/events"
+	"DevCode/src/service"
 	"strings"
 
 	"github.com/google/uuid"

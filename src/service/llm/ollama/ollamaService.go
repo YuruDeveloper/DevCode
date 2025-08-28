@@ -1,11 +1,11 @@
 package ollama
 
 import (
-	"UniCode/src/constants"
-	"UniCode/src/dto"
-	"UniCode/src/events"
-	"UniCode/src/service"
-	"UniCode/src/utils"
+	"DevCode/src/constants"
+	"DevCode/src/dto"
+	"DevCode/src/events"
+	"DevCode/src/service"
+	"DevCode/src/utils"
 	"context"
 	"fmt"
 	"net/http"

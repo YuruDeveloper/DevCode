@@ -1,13 +1,13 @@
 package main
 
 import (
-	"UniCode/src/events"
-	"UniCode/src/service/environment"
-	"UniCode/src/service/llm/ollama"
-	"UniCode/src/service/mcp"
-	"UniCode/src/service/message"
-	"UniCode/src/service/tool"
-	"UniCode/src/viewinterface"
+	"DevCode/src/events"
+	"DevCode/src/service/environment"
+	"DevCode/src/service/llm/ollama"
+	"DevCode/src/service/mcp"
+	"DevCode/src/service/message"
+	"DevCode/src/service/tool"
+	"DevCode/src/viewinterface"
 	"fmt"
 	"os"
 

@@ -1,7 +1,7 @@
 package events
 
 import (
-	"UniCode/src/constants"
+	"DevCode/src/constants"
 	"fmt"
 	"sync"
 

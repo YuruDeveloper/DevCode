@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"UniCode/src/dto"
+	"DevCode/src/dto"
 	"fmt"
 	"strings"
 )

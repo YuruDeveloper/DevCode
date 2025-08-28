@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"UniCode/src/types"
+	"DevCode/src/types"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

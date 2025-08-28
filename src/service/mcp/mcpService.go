@@ -1,13 +1,15 @@
 package mcp
 
 import (
-	"UniCode/src/constants"
-	"UniCode/src/dto"
-	"UniCode/src/events"
-	"UniCode/src/service"
-	"UniCode/src/tools/read"
-	"UniCode/src/types"
+	"DevCode/src/constants"
+	"DevCode/src/dto"
+	"DevCode/src/events"
+	"DevCode/src/service"
+	"DevCode/src/tools/read"
+	"DevCode/src/types"
 	"context"
+	"fmt"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -128,6 +130,19 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 			zap.String("tool_name", data.ToolName),
 			zap.String("request_uuid", data.RequestUUID.String()),
 			zap.Error(err))
+		service.PublishEvent(instance.bus,events.ToolRawResultEvent,dto.ToolRawResultData{
+			RequestUUID: data.RequestUUID,
+			ToolCall: data.ToolCallUUID,
+			Result: &mcp.CallToolResult {
+				IsError: true,
+				Content: []mcp.Content {
+					&mcp.TextContent{
+						Text: fmt.Sprintf(" %v",err),
+					},
+				},
+			},
+		},constants.McpService)
+		return
 	} else {
 		instance.logger.Info("도구 호출 성공",
 			zap.String("tool_name", data.ToolName),

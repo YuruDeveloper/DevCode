@@ -1,9 +1,9 @@
 package viewinterface
 
 import (
-	"UniCode/src/constants"
-	"UniCode/src/dto"
-	"UniCode/src/events"
+	"DevCode/src/constants"
+	"DevCode/src/dto"
+	"DevCode/src/events"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
