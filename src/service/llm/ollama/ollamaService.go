@@ -6,48 +6,27 @@ import (
 	"DevCode/src/events"
 	"DevCode/src/service"
 	"DevCode/src/utils"
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ollama/ollama/api"
 	"github.com/spf13/viper"
 )
 
-const (
-	EnvironmentInfo = "Here is useful information about the environment you are running in:\n"
-)
 
-type RequestContext struct {
-	RequestUUID uuid.UUID
-	ToolCalls   map[uuid.UUID]string
-}
+
 
 type OllamaService struct {
 	client *api.Client
 	model  string
-	ctx    context.Context
 	bus    events.Bus
-
-	systemMessages []api.Message
-	messages       []api.Message
-
-	tools []api.Tool
-
-	environment string
-
-	activeStreams map[uuid.UUID]context.CancelFunc
-	streamMutex   sync.RWMutex
-	buffer        string
-
-	requestContents map[uuid.UUID]RequestContext
-	requestMutex    sync.RWMutex
+	messageManager *MessageManager
+	toolManager *ToolManager
+	StreamManager *StreamManager
 }
 
 func NewOllamaService(bus events.Bus) (*OllamaService, error) {
@@ -75,25 +54,15 @@ func NewOllamaService(bus events.Bus) (*OllamaService, error) {
 		return nil, fmt.Errorf("fail to Read SystemPrompt %v", err)
 	}
 
-	systemMessages := make([]api.Message, 0, 10)
-
-	systemMessages = append(systemMessages, api.Message{
-		Role:    "system",
-		Content: string(systemPrompt),
-	})
-
-	ctx := context.Background()
-
 	service := &OllamaService{
 		client:          ollamaClient,
 		model:           data[1],
-		ctx:             ctx,
 		bus:             bus,
-		systemMessages:  systemMessages,
-		messages:        make([]api.Message, 0, 100),
-		tools:           make([]api.Tool, 0, 10),
-		requestContents: make(map[uuid.UUID]RequestContext, 10),
+		messageManager: NewMessageManager(),
+		toolManager: NewToolManager(),
+		StreamManager: NewStreamManager(),
 	}
+	service.messageManager.AddSystemMessage(string(systemPrompt))
 	bus.Subscribe(events.UserInputEvent, service)
 	bus.Subscribe(events.UpdateEnvironmentEvent, service)
 	bus.Subscribe(events.UpdateToolListEvent, service)
@@ -105,13 +74,13 @@ func NewOllamaService(bus events.Bus) (*OllamaService, error) {
 func (instance *OllamaService) HandleEvent(event events.Event) {
 	switch event.Type {
 	case events.UserInputEvent:
-		instance.UpdateUserInput(event.Data.(dto.UserRequestData).Message)
+		instance.messageManager.AddUserMessage(event.Data.(dto.UserRequestData).Message)
 		instance.UpdateEnvironmentToolList()
 		instance.CallApi(event.Data.(dto.UserRequestData).RequestUUID)
 	case events.UpdateEnvironmentEvent:
-		instance.environment = utils.EnvironmentUpdateDataToString(event.Data.(dto.EnvironmentUpdateData))
+		instance.messageManager.SetEnvironmentMessage(utils.EnvironmentUpdateDataToString(event.Data.(dto.EnvironmentUpdateData)))
 	case events.UpdateToolListEvent:
-		instance.UpdateToolList(event.Data.(dto.ToolListUpdateData).List)
+		instance.toolManager.RegisterToolList(event.Data.(dto.ToolListUpdateData).List)
 	case events.StreamCancelEvent:
 		instance.CancelStream(event.Data.(dto.StreamCancelData).RequestUUID)
 	case events.ToolResultEvent:
@@ -120,55 +89,14 @@ func (instance *OllamaService) HandleEvent(event events.Event) {
 }
 
 func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
-	instance.requestMutex.Lock()
-	defer instance.requestMutex.Unlock()
-
-	if _, exists := instance.requestContents[data.RequestUUID].ToolCalls[data.ToolCallUUID]; exists {
-		msg := api.Message{
-			Role:    "tool",
-			Content: data.ToolResult,
-		}
-		instance.messages = append(instance.messages, msg)
-		delete(instance.requestContents[data.RequestUUID].ToolCalls, data.ToolCallUUID)
-		if len(instance.requestContents[data.RequestUUID].ToolCalls) == 0 {
-			delete(instance.requestContents, data.RequestUUID)
+	if instance.toolManager.HasToolCall(data.RequestUUID,data.ToolCallUUID) {
+		instance.messageManager.AddToolMessage(data.ToolResult)
+		instance.toolManager.CompleteToolCall(data.RequestUUID,data.ToolCallUUID)
+		if instance.toolManager.HasPendingCalls(data.RequestUUID) {
+			instance.toolManager.ClearRequest(data.RequestUUID)
 			instance.CallApi(data.RequestUUID)
 		}
 	}
-}
-
-func (instance *OllamaService) HasActiveTollCalls(requestUUID uuid.UUID) bool {
-	instance.requestMutex.RLock()
-	defer instance.requestMutex.RUnlock()
-
-	if content, exists := instance.requestContents[requestUUID]; exists {
-		return len(content.ToolCalls) > 0
-	}
-	return false
-}
-
-func (instance *OllamaService) EnvironmentMessage() *api.Message {
-	return &api.Message{
-		Role:    "system",
-		Content: EnvironmentInfo + instance.environment,
-	}
-}
-
-func (instance *OllamaService) UpdateToolList(data []*mcp.Tool) {
-	instance.tools = make([]api.Tool, 0, len(data))
-	for _, tool := range data {
-		if tool == nil {
-			continue
-		}
-		instance.tools = append(instance.tools, ConvertTool(tool))
-	}
-}
-
-func (instance *OllamaService) UpdateUserInput(message string) {
-	instance.messages = append(instance.messages, api.Message{
-		Role:    "user",
-		Content: message,
-	})
 }
 
 func (instance *OllamaService) GetID() constants.Source {
@@ -198,6 +126,10 @@ func (instance *OllamaService) UpdateEnvironmentToolList() {
 	)
 }
 
+func (instance *OllamaService) AddAssistantMessage(message string) {
+	instance.messageManager.AddAssistantMessage(message)
+}
+
 func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 	instance.bus.Publish(
 		events.Event{
@@ -209,109 +141,36 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 			Source:    constants.LLMService,
 		},
 	)
-	ctx, cancel := context.WithCancel(instance.ctx)
-
-	instance.streamMutex.Lock()
-	if instance.activeStreams == nil {
-		instance.activeStreams = make(map[uuid.UUID]context.CancelFunc)
-	}
-	instance.activeStreams[requestUUID] = cancel
-	instance.streamMutex.Unlock()
-
-	request := api.ChatRequest{
-		Model:    instance.model,
-		Messages: append(append(instance.systemMessages, *instance.EnvironmentMessage()), instance.messages...),
-		Tools:    instance.tools,
-		Stream:   &[]bool{true}[0],
-	}
-
-	go func() {
-		defer func() {
-			instance.streamMutex.Lock()
-			delete(instance.activeStreams, requestUUID)
-			instance.streamMutex.Unlock()
-		}()
-
-		err := instance.client.Chat(ctx, &request, func(response api.ChatResponse) error {
-			return instance.Response(requestUUID, response)
-		})
-
-		if err != nil {
-			instance.bus.Publish(
-				events.Event{
-					Type: events.StreamErrorEvent,
-					Data: dto.StreamErrorData{
-						RequestUUID: requestUUID,
-						Error:       err,
-					},
-					Timestamp: time.Now(),
-					Source:    constants.LLMService,
-				},
-			)
-		}
-	}()
+	instance.StreamManager.StartStream(instance.client,
+		instance.bus,requestUUID,
+		instance.model,
+		instance.toolManager.GetToolList(),
+		instance.messageManager.GetMessages(),
+	func(requestUUID uuid.UUID, response api.ChatResponse) error {
+		return instance.StreamManager.Response(
+			requestUUID,
+			response,instance.bus,
+			instance.AddAssistantMessage,
+			instance.toolManager.HasPendingCalls,
+			instance.ProcessToolCalls,
+		)
+	})
 }
 
-func (instance *OllamaService) Response(requestUUID uuid.UUID, response api.ChatResponse) error {
-
-	if response.Message.Content != "" {
-		service.PublishEvent(instance.bus, events.StreamChunkEvent, dto.StreamChunkData{
+func (instance *OllamaService) ProcessToolCalls(requestUUID uuid.UUID,ToolCalls []api.ToolCall) {
+	for _ , call := range ToolCalls {
+		toolCallUUID := uuid.New()
+		service.PublishEvent(instance.bus,events.ToolCallEvent,dto.ToolCallData {
 			RequestUUID: requestUUID,
-			Content:     response.Message.Content,
-			IsComplete:  response.Done}, constants.LLMService)
-		instance.buffer += response.Message.Content
+			ToolCallUUID: toolCallUUID,
+			ToolName: call.Function.Name,
+			Parameters: call.Function.Arguments,
+		},constants.LLMService)
+		instance.toolManager.RegisterToolCall(requestUUID,toolCallUUID,call.Function.Name)
 	}
-	if response.Done {
-		service.PublishEvent(instance.bus, events.StreamCompleteEvent, dto.StreamCompleteData{
-			RequestUUID:  requestUUID,
-			FinalMessage: response.Message.Content,
-			IsComplete:   !instance.HasActiveTollCalls(requestUUID),
-		}, constants.LLMService)
-
-		instance.messages = append(instance.messages, api.Message{
-			Role:    "assistant",
-			Content: instance.buffer,
-		})
-		instance.buffer = ""
-	}
-
-	if len(response.Message.ToolCalls) > 0 {
-		for _, call := range response.Message.ToolCalls {
-			toolCall := uuid.New()
-			service.PublishEvent(instance.bus, events.ToolCallEvent, dto.ToolCallData{
-				RequestUUID:  requestUUID,
-				ToolCallUUID: toolCall,
-				ToolName:     call.Function.Name,
-				Parameters:   call.Function.Arguments,
-			}, constants.LLMService)
-			instance.requestMutex.Lock()
-			if content, exist := instance.requestContents[requestUUID]; exist {
-				content.ToolCalls[toolCall] = call.Function.Name
-			} else {
-
-				instance.requestContents[requestUUID] = RequestContext{
-					RequestUUID: requestUUID,
-					ToolCalls:   make(map[uuid.UUID]string),
-				}
-				instance.requestContents[requestUUID].ToolCalls[toolCall] = call.Function.Name
-			}
-			instance.requestMutex.Unlock()
-		}
-	}
-	return nil
 }
 
 func (instance *OllamaService) CancelStream(requestUUID uuid.UUID) {
-	instance.streamMutex.RLock()
-	cancel, exists := instance.activeStreams[requestUUID]
-	instance.streamMutex.RUnlock()
-	if exists {
-		cancel()
-	}
-	instance.requestMutex.Lock()
-	_, exists = instance.requestContents[requestUUID]
-	if exists {
-		delete(instance.requestContents, requestUUID)
-	}
-	instance.requestMutex.Unlock()
+	instance.StreamManager.CancelStream(requestUUID)
+	instance.toolManager.ClearRequest(requestUUID)
 }
