@@ -24,9 +24,9 @@ type OllamaService struct {
 	client *api.Client
 	model  string
 	bus    events.Bus
-	messageManager *MessageManager
-	toolManager *ToolManager
-	StreamManager *StreamManager
+	messageManager IMessageManager
+	toolManager IToolManager
+	StreamManager IStreamManager
 }
 
 func NewOllamaService(bus events.Bus) (*OllamaService, error) {
@@ -92,7 +92,7 @@ func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
 	if instance.toolManager.HasToolCall(data.RequestUUID,data.ToolCallUUID) {
 		instance.messageManager.AddToolMessage(data.ToolResult)
 		instance.toolManager.CompleteToolCall(data.RequestUUID,data.ToolCallUUID)
-		if instance.toolManager.HasPendingCalls(data.RequestUUID) {
+		if !instance.toolManager.HasPendingCalls(data.RequestUUID) {
 			instance.toolManager.ClearRequest(data.RequestUUID)
 			instance.CallApi(data.RequestUUID)
 		}

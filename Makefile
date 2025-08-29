@@ -3,7 +3,7 @@
 .PHONY: build clean test test-unit test-service test-integration test-all run format lint install help
 
 # Default target
-All: build
+all: build
 
 # Build the project
 build:
@@ -21,7 +21,7 @@ test:
 	@echo "Running unit tests from src directory..."
 	go test -v ./...
 	@echo "Running unit tests from tests directory..."
-	cd tests && go test -v -run "^Test.*[^Integration]$$" ./...
+	cd tests && go test -v -run "^Test.*[^Integration]$" ./...
 
 # Run only unit tests (src directory)
 test-unit:
@@ -31,7 +31,7 @@ test-unit:
 # Run only service unit tests (tests directory, excluding integration)
 test-service:
 	@echo "Running service unit tests..."
-	cd tests && go test -v -run "^Test.*[^Integration]$$" ./...
+	cd tests && go test -v -run "^Test.*[^Integration]$" ./...
 
 # Run only integration tests (tests directory)  
 test-integration:
