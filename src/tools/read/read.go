@@ -4,20 +4,16 @@ import (
 	"DevCode/src/tools"
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-type ErrorCode string
-
 const (
-	FileNotFound     = "FILE_NOT_FOUND"
-	PermissionDenied = "PERMISSION_DENIED"
-	InvalidPath      = "INVALID_PATH"
-	ReadDescription  = `Reads a file from the local filesystem. You can access any file directly by
+	ReadDescription = `Reads a file from the local filesystem. You can access any file directly by
    using this tool.\nAssume this tool is able to read all files on the machine. If the User
   provides a path to a file assume that path is valid. It is okay to read a file that does not
   exist; an error will be returned.\n\nUsage:\n- The file_path parameter must be an absolute
@@ -38,33 +34,14 @@ const (
   /var/folders/123/abc/T/TemporaryItems/NSIRD_screencaptureui_ZfB1tD/Screenshot.png\n-</good-exam1ple> If you
   read a file that exists but has empty contents you will receive a system reminder warning in
   place of file contents.`
+	Name = "Read"
 )
-
-type Input struct {
-	FilePath string `json:"file_path" jsonschema:"description:The absolute path to the file to read"`
-	Offset   int    `json:"offset" jsonschema:"description:The line number to start reading from. Only provide if the file is too large to read at once"`
-	Limit    int    `json:"limit" jsonschema:"description:The number of lines to read. Only provide if the file is too large to read at once"`
-}
-
-type Success struct {
-	Success    bool   `json:"success"`
-	Text       string `json:"content"`
-	TotalLines int    `json:"total_lines"`
-	LinesRead  int    `json:"lines_read"`
-}
-
-func (instance Success) Content() (*mcp.TextContent, error) {
-	jsonText, err := json.Marshal(instance)
-	return &mcp.TextContent{
-		Text: string(jsonText),
-	}, err
-}
 
 type Tool struct {
 }
 
 func (*Tool) Name() string {
-	return "Read"
+	return Name
 }
 
 func (instance *Tool) Description() string {
@@ -74,7 +51,7 @@ func (instance *Tool) Description() string {
 func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
 	return func(ctx context.Context, session *mcp.ServerSession, params *mcp.CallToolParamsFor[Input]) (*mcp.CallToolResultFor[any], error) {
 		input := params.Arguments
-		if input.FilePath == "" {
+		if input.FilePath == "" || !filepath.IsAbs(input.FilePath) {
 			return nil, fmt.Errorf("invalid path format: %s", input.FilePath)
 		}
 		if _, err := os.Stat(input.FilePath); os.IsNotExist(err) {
@@ -98,19 +75,14 @@ func (instance *Tool) Handler() mcp.ToolHandlerFor[Input, any] {
 				continue
 			}
 			if input.Limit > 0 && readLines >= input.Limit {
-				continue
+				break
 			}
-			fmt.Fprintf(&content, "%6d\t%s\n", totalLines, scanner.Text())
+			fmt.Fprintf(&content, "%6d→\t%s\n", totalLines, scanner.Text())
 			readLines++
 			if totalLines == 2000 {
 				break
 			}
 		}
-		return tools.TextReturn(Success{
-			Success:    true,
-			Text:       content.String(),
-			TotalLines: totalLines,
-			LinesRead:  readLines,
-		})
+		return tools.TextReturn(content.String())
 	}
 }

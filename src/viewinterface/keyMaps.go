@@ -35,10 +35,10 @@ type SelectKeyMap struct {
 func NewDefaultSelectKeyMap() SelectKeyMap {
 	return SelectKeyMap{
 		Up: key.NewBinding(
-			key.WithKeys(tea.KeyUp.String(), "w","ㅈ"),
+			key.WithKeys(tea.KeyUp.String(), "w", "ㅈ"),
 		),
 		Down: key.NewBinding(
-			key.WithKeys(tea.KeyDown.String(), "s","ㄴ"),
+			key.WithKeys(tea.KeyDown.String(), "s", "ㄴ"),
 		),
 		Choice: key.NewBinding(
 			key.WithKeys(tea.KeyEnter.String()),

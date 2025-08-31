@@ -9,24 +9,24 @@ import (
 )
 
 const (
-	DefaultToolSize = 10
+	DefaultToolSize            = 10
 	DefaultRequestContentsSize = 10
-	DefaultToolCallSize = 20 
+	DefaultToolCallSize        = 20
 )
 
 type RequestContext struct {
-	ToolCalls   map[uuid.UUID]string
+	ToolCalls map[uuid.UUID]string
 }
 
-func NewToolManager() *ToolManager{
+func NewToolManager() *ToolManager {
 	return &ToolManager{
-		tools: make([]api.Tool, 0,DefaultToolSize),
-		requestContents: make(map[uuid.UUID]*RequestContext,DefaultRequestContentsSize),
+		tools:           make([]api.Tool, 0, DefaultToolSize),
+		requestContents: make(map[uuid.UUID]*RequestContext, DefaultRequestContentsSize),
 	}
 }
 
 type ToolManager struct {
-	tools []api.Tool
+	tools           []api.Tool
 	requestContents map[uuid.UUID]*RequestContext
 	requestMutex    sync.RWMutex
 }
@@ -35,10 +35,10 @@ func (instance *ToolManager) RegisterToolList(tools []*mcp.Tool) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
 	if instance.tools == nil {
-		instance.tools = make([]api.Tool,0,DefaultToolSize)
+		instance.tools = make([]api.Tool, 0, DefaultToolSize)
 	}
 	instance.tools = instance.tools[:0]
-	for _ , tool := range tools {
+	for _, tool := range tools {
 		if tool == nil {
 			continue
 		}
@@ -52,65 +52,64 @@ func (instance *ToolManager) GetToolList() []api.Tool {
 	return instance.tools
 }
 
-func (instance *ToolManager) RegisterToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID , toolName string) {
+func (instance *ToolManager) RegisterToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID, toolName string) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
 	if instance.requestContents == nil {
-		instance.requestContents = make(map[uuid.UUID]*RequestContext,DefaultRequestContentsSize)
+		instance.requestContents = make(map[uuid.UUID]*RequestContext, DefaultRequestContentsSize)
 	}
-	if content , exists := instance.requestContents[requestUUID]; exists {
+	if content, exists := instance.requestContents[requestUUID]; exists {
 		if content.ToolCalls == nil {
-			content.ToolCalls = make(map[uuid.UUID]string,DefaultToolCallSize)
-		}	
+			content.ToolCalls = make(map[uuid.UUID]string, DefaultToolCallSize)
+		}
 		content.ToolCalls[toolCallUUID] = toolName
 	} else {
-		instance.requestContents[requestUUID] = &RequestContext {
-			ToolCalls: make(map[uuid.UUID]string,DefaultToolCallSize),
+		instance.requestContents[requestUUID] = &RequestContext{
+			ToolCalls: make(map[uuid.UUID]string, DefaultToolCallSize),
 		}
 		instance.requestContents[requestUUID].ToolCalls[toolCallUUID] = toolName
 	}
 }
 
-func (instance *ToolManager) HasToolCall(requestUUID uuid.UUID,toolCallUUID uuid.UUID) bool {
+func (instance *ToolManager) HasToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID) bool {
 	instance.requestMutex.RLock()
 	defer instance.requestMutex.RUnlock()
-	if content , exists := instance.requestContents[requestUUID] ; exists {
+	if content, exists := instance.requestContents[requestUUID]; exists {
 		if content.ToolCalls == nil {
-			return  false
+			return false
 		}
-		if _ , exists := content.ToolCalls[toolCallUUID] ; exists {
+		if _, exists := content.ToolCalls[toolCallUUID]; exists {
 			return true
 		}
 	}
-	return  false
+	return false
 }
 
-func (instance *ToolManager) CompleteToolCall(requestUUID uuid.UUID,toolCallUUID uuid.UUID) {
+func (instance *ToolManager) CompleteToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
-	if content , exists := instance.requestContents[requestUUID] ; exists {
+	if content, exists := instance.requestContents[requestUUID]; exists {
 		if content.ToolCalls == nil {
-			return 
+			return
 		}
-		delete(content.ToolCalls,toolCallUUID)
-	} 
+		delete(content.ToolCalls, toolCallUUID)
+	}
 }
 
 func (instance *ToolManager) HasPendingCalls(requestUUID uuid.UUID) bool {
 	instance.requestMutex.RLock()
 	defer instance.requestMutex.RUnlock()
-	if content , exists := instance.requestContents[requestUUID] ; exists {
+	if content, exists := instance.requestContents[requestUUID]; exists {
 		if content.ToolCalls == nil {
 			return false
 		}
 		return len(content.ToolCalls) > 0
 	}
-	return  false
-} 
-
+	return false
+}
 
 func (instance *ToolManager) ClearRequest(requestUUID uuid.UUID) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
-	delete(instance.requestContents,requestUUID)
+	delete(instance.requestContents, requestUUID)
 }

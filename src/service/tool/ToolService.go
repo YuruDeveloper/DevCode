@@ -58,12 +58,12 @@ func (instance *ToolService) ProcessUserDecision(data dto.UserDecisionData) {
 				ToolCallUUID: data.ToolCallUUID,
 				ToolResult:   builder.String(),
 			}, constants.ToolService)
-			service.PublishEvent(instance.bus,events.ToolUseReportEvent,dto.ToolUseReportData {
-				RequestUUID: data.RequestUUID,
+			service.PublishEvent(instance.bus, events.ToolUseReportEvent, dto.ToolUseReportData{
+				RequestUUID:  data.RequestUUID,
 				ToolCallUUID: data.ToolCallUUID,
-				ToolInfo: "",
-				ToolStatus: constants.Error,
-			},constants.ToolService)
+				ToolInfo:     "",
+				ToolStatus:   constants.Error,
+			}, constants.ToolService)
 		}
 		delete(instance.toolCallBuffer, data.ToolCallUUID)
 	}
@@ -135,6 +135,8 @@ func (instance *ToolService) ToolInfo(name string, parameters map[string]any) st
 	switch name {
 	case "Read":
 		return name + " (" + parameters["file_path"].(string) + ")"
+	case "LS":
+		return "List(" + parameters["path"].(string) + ")"
 	}
 	return ""
 }

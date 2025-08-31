@@ -9,7 +9,3 @@ type Tool[T any] interface {
 	Description() string
 	Handler() mcp.ToolHandlerFor[T, any]
 }
-
-type Result interface {
-	Content() (*mcp.TextContent, error)
-}

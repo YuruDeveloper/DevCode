@@ -5,6 +5,7 @@ import (
 	"DevCode/src/dto"
 	"DevCode/src/events"
 	"DevCode/src/service"
+	"DevCode/src/tools/ls"
 	"DevCode/src/tools/read"
 	"DevCode/src/types"
 	"context"
@@ -63,6 +64,7 @@ func NewMcpService(bus *events.EventBus) *McpService {
 
 func (instance *McpService) InitTools() {
 	InsertTool(instance, &read.Tool{})
+	InsertTool(instance, &ls.Tool{})
 }
 
 func InsertTool[T any](server *McpService, tool types.Tool[T]) {

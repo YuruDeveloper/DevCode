@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-
 type UpdateStatus struct {
 	NewStauts constants.ToolStatus
 }

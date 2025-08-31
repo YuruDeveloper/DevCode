@@ -17,16 +17,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-
-
-
 type OllamaService struct {
-	client *api.Client
-	model  string
-	bus    events.Bus
+	client         *api.Client
+	model          string
+	bus            events.Bus
 	messageManager IMessageManager
-	toolManager IToolManager
-	StreamManager IStreamManager
+	toolManager    IToolManager
+	StreamManager  IStreamManager
 }
 
 func NewOllamaService(bus events.Bus) (*OllamaService, error) {
@@ -55,12 +52,12 @@ func NewOllamaService(bus events.Bus) (*OllamaService, error) {
 	}
 
 	service := &OllamaService{
-		client:          ollamaClient,
-		model:           data[1],
-		bus:             bus,
+		client:         ollamaClient,
+		model:          data[1],
+		bus:            bus,
 		messageManager: NewMessageManager(),
-		toolManager: NewToolManager(),
-		StreamManager: NewStreamManager(),
+		toolManager:    NewToolManager(),
+		StreamManager:  NewStreamManager(),
 	}
 	service.messageManager.AddSystemMessage(string(systemPrompt))
 	bus.Subscribe(events.UserInputEvent, service)
@@ -89,9 +86,9 @@ func (instance *OllamaService) HandleEvent(event events.Event) {
 }
 
 func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
-	if instance.toolManager.HasToolCall(data.RequestUUID,data.ToolCallUUID) {
+	if instance.toolManager.HasToolCall(data.RequestUUID, data.ToolCallUUID) {
 		instance.messageManager.AddToolMessage(data.ToolResult)
-		instance.toolManager.CompleteToolCall(data.RequestUUID,data.ToolCallUUID)
+		instance.toolManager.CompleteToolCall(data.RequestUUID, data.ToolCallUUID)
 		if !instance.toolManager.HasPendingCalls(data.RequestUUID) {
 			instance.toolManager.ClearRequest(data.RequestUUID)
 			instance.CallApi(data.RequestUUID)
@@ -142,31 +139,31 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 		},
 	)
 	instance.StreamManager.StartStream(instance.client,
-		instance.bus,requestUUID,
+		instance.bus, requestUUID,
 		instance.model,
 		instance.toolManager.GetToolList(),
 		instance.messageManager.GetMessages(),
-	func(requestUUID uuid.UUID, response api.ChatResponse) error {
-		return instance.StreamManager.Response(
-			requestUUID,
-			response,instance.bus,
-			instance.AddAssistantMessage,
-			instance.toolManager.HasPendingCalls,
-			instance.ProcessToolCalls,
-		)
-	})
+		func(requestUUID uuid.UUID, response api.ChatResponse) error {
+			return instance.StreamManager.Response(
+				requestUUID,
+				response, instance.bus,
+				instance.AddAssistantMessage,
+				instance.toolManager.HasPendingCalls,
+				instance.ProcessToolCalls,
+			)
+		})
 }
 
-func (instance *OllamaService) ProcessToolCalls(requestUUID uuid.UUID,ToolCalls []api.ToolCall) {
-	for _ , call := range ToolCalls {
+func (instance *OllamaService) ProcessToolCalls(requestUUID uuid.UUID, ToolCalls []api.ToolCall) {
+	for _, call := range ToolCalls {
 		toolCallUUID := uuid.New()
-		service.PublishEvent(instance.bus,events.ToolCallEvent,dto.ToolCallData {
-			RequestUUID: requestUUID,
+		service.PublishEvent(instance.bus, events.ToolCallEvent, dto.ToolCallData{
+			RequestUUID:  requestUUID,
 			ToolCallUUID: toolCallUUID,
-			ToolName: call.Function.Name,
-			Parameters: call.Function.Arguments,
-		},constants.LLMService)
-		instance.toolManager.RegisterToolCall(requestUUID,toolCallUUID,call.Function.Name)
+			ToolName:     call.Function.Name,
+			Parameters:   call.Function.Arguments,
+		}, constants.LLMService)
+		instance.toolManager.RegisterToolCall(requestUUID, toolCallUUID, call.Function.Name)
 	}
 }
 

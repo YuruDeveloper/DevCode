@@ -33,11 +33,9 @@ type PendingTool struct {
 	ToolCallUUID uuid.UUID
 }
 
-
 const (
 	Dot = "●"
 )
-
 
 func NewMainModel(bus *events.EventBus) *MainModel {
 	text := textarea.New()
@@ -62,11 +60,11 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 
 	selectModel := NewSelectModel(
 		[]string{"yes", "no"},
-		 nil, 
-		 nil,
-		  lipgloss.NewStyle().
-		  Border(lipgloss.RoundedBorder()).
-		  BorderForeground(lipgloss.ANSIColor(32)))
+		nil,
+		nil,
+		lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.ANSIColor(32)).Height(10).Width(20))
 	model := &MainModel{
 		InputPort:        text,
 		Bus:              bus,

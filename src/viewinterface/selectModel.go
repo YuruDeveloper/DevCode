@@ -8,8 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-
-
 func NewSelectModel(choices []string, selectCallBack func(int), quitCallBack func(), style lipgloss.Style) *SelectModel {
 	return &SelectModel{
 		Choices:        choices,
