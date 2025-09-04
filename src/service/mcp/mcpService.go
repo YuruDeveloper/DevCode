@@ -1,18 +1,18 @@
 package mcp
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
-	"DevCode/src/service"
 	"DevCode/src/tools/ls"
 	"DevCode/src/tools/read"
 	"DevCode/src/types"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/spf13/viper"
 )
 
 type McpService struct {
@@ -23,19 +23,13 @@ type McpService struct {
 	ctx           context.Context
 }
 
-func NewMcpService(bus *events.EventBus) *McpService {
+func NewMcpService(bus *events.EventBus, config config.McpServiceConfig) *McpService {
 
-	requireds := []string{"mcp.name", "mcp.version", "server.name", "server.version"}
-	data := make([]string, 4)
-	for index, required := range requireds {
-		data[index] = viper.GetString(required)
-	}
-
-	mcpClient := mcp.NewClient(&mcp.Implementation{Name: data[0], Version: data[1]}, nil)
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: config.Name, Version: config.Version}, nil)
 
 	implementation := &mcp.Implementation{
-		Name:    data[2],
-		Version: data[3],
+		Name:    config.ServerName,
+		Version: config.ServerVersion,
 	}
 	mcpServer := mcp.NewServer(implementation, nil)
 
@@ -57,9 +51,17 @@ func NewMcpService(bus *events.EventBus) *McpService {
 
 	service.clientSession, _ = service.client.Connect(service.ctx, clientTrans)
 
-	bus.Subscribe(events.RequestToolListEvent, service)
-	bus.Subscribe(events.AcceptToolEvent, service)
+	service.Subscribe()
 	return service
+}
+
+func (instance *McpService) Subscribe() {
+	instance.bus.RequestToolListEvent.Subscribe(constants.McpService, func(event events.Event[dto.RequestToolListData]) {
+		instance.PublishToolList()
+	})
+	instance.bus.AcceptToolEvent.Subscribe(constants.McpService, func(event events.Event[dto.ToolCallData]) {
+		instance.ToolCall(event.Data)
+	})
 }
 
 func (instance *McpService) InitTools() {
@@ -76,16 +78,6 @@ func InsertTool[T any](server *McpService, tool types.Tool[T]) {
 	mcp.AddTool(server.toolServer, mcpTool, tool.Handler())
 }
 
-func (instance *McpService) HandleEvent(event events.Event) {
-	switch event.Type {
-	case events.RequestToolListEvent:
-		instance.PublishToolList()
-	case events.AcceptToolEvent:
-		instance.ToolCall(event.Data.(dto.ToolCallData))
-	default:
-	}
-}
-
 func (instance *McpService) ToolCall(data dto.ToolCallData) {
 
 	params := &mcp.CallToolParams{
@@ -96,25 +88,33 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 	result, err := instance.clientSession.CallTool(instance.ctx, params)
 
 	if err != nil {
-		service.PublishEvent(instance.bus, events.ToolRawResultEvent, dto.ToolRawResultData{
-			RequestUUID:  data.RequestUUID,
-			ToolCallUUID: data.ToolCallUUID,
-			Result: &mcp.CallToolResult{
-				IsError: true,
-				Content: []mcp.Content{
-					&mcp.TextContent{
-						Text: fmt.Sprintf("Tool Call Error : %v", err),
+		instance.bus.ToolRawResultEvent.Publish(events.Event[dto.ToolRawResultData]{
+			Data: dto.ToolRawResultData{
+				RequestUUID:  data.RequestUUID,
+				ToolCallUUID: data.ToolCallUUID,
+				Result: &mcp.CallToolResult{
+					IsError: true,
+					Content: []mcp.Content{
+						&mcp.TextContent{
+							Text: fmt.Sprintf("Tool Call Error : %v", err),
+						},
 					},
 				},
 			},
-		}, constants.McpService)
+			TimeStamp: time.Now(),
+			Source:    constants.McpService,
+		})
 		return
 	}
-	service.PublishEvent(instance.bus, events.ToolRawResultEvent, dto.ToolRawResultData{
-		RequestUUID:  data.RequestUUID,
-		ToolCallUUID: data.ToolCallUUID,
-		Result:       result,
-	}, constants.McpService)
+	instance.bus.ToolRawResultEvent.Publish(events.Event[dto.ToolRawResultData]{
+		Data: dto.ToolRawResultData{
+			RequestUUID:  data.RequestUUID,
+			ToolCallUUID: data.ToolCallUUID,
+			Result:       result,
+		},
+		TimeStamp: time.Now(),
+		Source:    constants.McpService,
+	})
 }
 
 func (instance *McpService) PublishToolList() {
@@ -122,12 +122,13 @@ func (instance *McpService) PublishToolList() {
 	for tool := range instance.clientSession.Tools(instance.ctx, nil) {
 		mcpToolList = append(mcpToolList, tool)
 	}
-
-	service.PublishEvent(instance.bus, events.UpdateToolListEvent,
-		dto.ToolListUpdateData{
+	instance.bus.UpdateToolListEvent.Publish(events.Event[dto.ToolListUpdateData]{
+		Data: dto.ToolListUpdateData{
 			List: mcpToolList,
 		},
-		constants.McpService)
+		TimeStamp: time.Now(),
+		Source:    constants.McpService,
+	})
 }
 
 func (instance *McpService) GetID() constants.Source {

@@ -30,7 +30,7 @@ type IToolManager interface {
 type IStreamManager interface {
 	StartStream(
 		ollama *api.Client,
-		bus events.Bus,
+		bus *events.EventBus,
 		requestUUID uuid.UUID,
 		model string,
 		tools []api.Tool,
@@ -40,7 +40,7 @@ type IStreamManager interface {
 	Response(
 		requestUUID uuid.UUID,
 		response api.ChatResponse,
-		bus events.Bus,
+		bus *events.EventBus,
 		doneCallBack func(string),
 		checkDone func(uuid.UUID) bool,
 		toolsCallBack func(uuid.UUID, []api.ToolCall),

@@ -1,10 +1,8 @@
 package events
 
 import (
-	"DevCode/src/constants"
+	"DevCode/src/dto"
 	"fmt"
-	"sync"
-
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -14,55 +12,88 @@ func NewEventBus() (*EventBus, error) {
 		return nil, fmt.Errorf("fail to create ants pool : %w", err)
 	}
 	return &EventBus{
+		UserInputEvent:    NewTypedBus[dto.UserRequestData](pool),
+		UserDecisionEvent: NewTypedBus[dto.UserDecisionData](pool),
 
-		pool:        pool,
-		subscribers: make(map[EventType][]Subscriber, 6),
-		busMutex:    sync.RWMutex{},
+		RequestToolUseEvent: NewTypedBus[dto.ToolUseReportData](pool),
+		ToolCallEvent:       NewTypedBus[dto.ToolCallData](pool),
+		AcceptToolEvent:     NewTypedBus[dto.ToolCallData](pool),
+		ToolRawResultEvent:  NewTypedBus[dto.ToolRawResultData](pool),
+		ToolResultEvent:     NewTypedBus[dto.ToolResultData](pool),
+		ToolUseReportEvent:  NewTypedBus[dto.ToolUseReportData](pool),
+
+		RequestEnvironmentEvent: NewTypedBus[dto.EnvironmentRequestData](pool),
+		UpdateEnvironmentEvent:  NewTypedBus[dto.EnvironmentUpdateData](pool),
+
+		RequestToolListEvent: NewTypedBus[dto.RequestToolListData](pool),
+		UpdateToolListEvent:  NewTypedBus[dto.ToolListUpdateData](pool),
+
+		StreamStartEvent:    NewTypedBus[dto.StreamStartData](pool),
+		StreamChunkEvent:    NewTypedBus[dto.StreamChunkData](pool),
+		StreamCompleteEvent: NewTypedBus[dto.StreamCompleteData](pool),
+		StreamErrorEvent:    NewTypedBus[dto.StreamErrorData](pool),
+		StreamCancelEvent:   NewTypedBus[dto.StreamCancelData](pool),
+
+		StreamChunkParsedEvent:      NewTypedBus[dto.ParsedChunkData](pool),
+		StreamChunkParsedErrorEvent: NewTypedBus[dto.ParsedChunkErrorData](pool),
+		pool:                        pool,
 	}, nil
 }
 
 type EventBus struct {
-	pool        *ants.Pool
-	subscribers map[EventType][]Subscriber
-	busMutex    sync.RWMutex
-}
+	UserInputEvent    *TypedBus[dto.UserRequestData]
+	UserDecisionEvent *TypedBus[dto.UserDecisionData]
 
-func (instance *EventBus) Subscribe(eventType EventType, subscriber Subscriber) {
-	instance.busMutex.Lock()
-	defer instance.busMutex.Unlock()
+	RequestToolUseEvent *TypedBus[dto.ToolUseReportData]
+	ToolCallEvent       *TypedBus[dto.ToolCallData]
+	AcceptToolEvent     *TypedBus[dto.ToolCallData]
+	ToolRawResultEvent  *TypedBus[dto.ToolRawResultData]
+	ToolResultEvent     *TypedBus[dto.ToolResultData]
+	ToolUseReportEvent  *TypedBus[dto.ToolUseReportData]
 
-	instance.subscribers[eventType] = append(instance.subscribers[eventType], subscriber)
-}
+	RequestEnvironmentEvent *TypedBus[dto.EnvironmentRequestData]
+	UpdateEnvironmentEvent  *TypedBus[dto.EnvironmentUpdateData]
 
-func (instance *EventBus) UnSubscribe(eventType EventType, subscriberID constants.Source) {
-	instance.busMutex.Lock()
-	defer instance.busMutex.Unlock()
+	RequestToolListEvent *TypedBus[dto.RequestToolListData]
+	UpdateToolListEvent  *TypedBus[dto.ToolListUpdateData]
 
-	for index, subscriber := range instance.subscribers[eventType] {
-		if subscriber.GetID() == subscriberID {
-			instance.subscribers[eventType] = append(instance.subscribers[eventType][:index], instance.subscribers[eventType][index+1:]...)
-			return
-		}
-	}
-}
+	StreamStartEvent    *TypedBus[dto.StreamStartData]
+	StreamChunkEvent    *TypedBus[dto.StreamChunkData]
+	StreamCompleteEvent *TypedBus[dto.StreamCompleteData]
+	StreamErrorEvent    *TypedBus[dto.StreamErrorData]
+	StreamCancelEvent   *TypedBus[dto.StreamCancelData]
 
-func (instance *EventBus) Publish(event Event) {
-	instance.busMutex.RLock()
-	defer instance.busMutex.RUnlock()
-	for _, subscriber := range instance.subscribers[event.Type] {
-		instance.pool.Submit(
-			func() {
-				defer func() {
-					if recover := recover(); recover != nil {
+	StreamChunkParsedEvent      *TypedBus[dto.ParsedChunkData]
+	StreamChunkParsedErrorEvent *TypedBus[dto.ParsedChunkErrorData]
 
-					}
-				}()
-				subscriber.HandleEvent(event)
-			},
-		)
-	}
+	pool *ants.Pool
 }
 
 func (instance *EventBus) Close() {
+	instance.UserInputEvent.Close()
+	instance.UserDecisionEvent.Close()
+
+	instance.RequestEnvironmentEvent.Close()
+	instance.UpdateEnvironmentEvent.Close()
+
+	instance.RequestToolListEvent.Close()
+	instance.UpdateToolListEvent.Close()
+
+	instance.RequestToolUseEvent.Close()
+	instance.ToolUseReportEvent.Close()
+	instance.ToolCallEvent.Close()
+	instance.AcceptToolEvent.Close()
+	instance.ToolResultEvent.Close()
+	instance.ToolRawResultEvent.Close()
+
+	instance.StreamStartEvent.Close()
+	instance.StreamChunkEvent.Close()
+	instance.StreamCancelEvent.Close()
+	instance.StreamCompleteEvent.Close()
+	instance.StreamErrorEvent.Close()
+
+	instance.StreamChunkParsedEvent.Close()
+	instance.StreamChunkParsedErrorEvent.Close()
+
 	instance.pool.Release()
 }

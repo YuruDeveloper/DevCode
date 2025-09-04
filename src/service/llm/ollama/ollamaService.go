@@ -1,10 +1,10 @@
 package ollama
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
-	"DevCode/src/service"
 	"DevCode/src/utils"
 	"fmt"
 	"net/http"
@@ -14,38 +14,30 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ollama/ollama/api"
-	"github.com/spf13/viper"
 )
 
 type OllamaService struct {
 	client         *api.Client
-	model          string
-	bus            events.Bus
+	config         config.OllamaServiceConfig
+	bus            *events.EventBus
 	messageManager IMessageManager
 	toolManager    IToolManager
 	StreamManager  IStreamManager
 }
 
-func NewOllamaService(bus events.Bus) (*OllamaService, error) {
-
-	requireds := []string{"ollama.url", "ollama.model", "prompt.system"}
-	data := make([]string, 3)
-	for index, required := range requireds {
-		data[index] = viper.GetString(required)
-	}
-
-	parsedUrl, err := url.Parse(data[0])
+func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) (*OllamaService, error) {
+	parsedUrl, err := url.Parse(config.Url)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Ollama URL: %v", err)
 	}
 
 	ollamaClient := api.NewClient(parsedUrl, http.DefaultClient)
 
-	if data[2] == "" {
+	if config.System == "" {
 		return nil, fmt.Errorf("prompt.system not configured in env.toml")
 	}
 
-	systemPrompt, err := os.ReadFile(data[2])
+	systemPrompt, err := os.ReadFile(config.System)
 
 	if err != nil {
 		return nil, fmt.Errorf("fail to Read SystemPrompt %v", err)
@@ -53,36 +45,34 @@ func NewOllamaService(bus events.Bus) (*OllamaService, error) {
 
 	service := &OllamaService{
 		client:         ollamaClient,
-		model:          data[1],
+		config:         config,
 		bus:            bus,
-		messageManager: NewMessageManager(),
-		toolManager:    NewToolManager(),
-		StreamManager:  NewStreamManager(),
+		messageManager: NewMessageManager(config),
+		toolManager:    NewToolManager(config),
+		StreamManager:  NewStreamManager(config),
 	}
 	service.messageManager.AddSystemMessage(string(systemPrompt))
-	bus.Subscribe(events.UserInputEvent, service)
-	bus.Subscribe(events.UpdateEnvironmentEvent, service)
-	bus.Subscribe(events.UpdateToolListEvent, service)
-	bus.Subscribe(events.StreamCancelEvent, service)
-	bus.Subscribe(events.ToolResultEvent, service)
 	return service, nil
 }
 
-func (instance *OllamaService) HandleEvent(event events.Event) {
-	switch event.Type {
-	case events.UserInputEvent:
-		instance.messageManager.AddUserMessage(event.Data.(dto.UserRequestData).Message)
+func (instance *OllamaService) Subscribe() {
+	instance.bus.UserInputEvent.Subscribe(constants.LLMService, func(event events.Event[dto.UserRequestData]) {
+		instance.messageManager.AddUserMessage(event.Data.Message)
 		instance.UpdateEnvironmentToolList()
-		instance.CallApi(event.Data.(dto.UserRequestData).RequestUUID)
-	case events.UpdateEnvironmentEvent:
-		instance.messageManager.SetEnvironmentMessage(utils.EnvironmentUpdateDataToString(event.Data.(dto.EnvironmentUpdateData)))
-	case events.UpdateToolListEvent:
-		instance.toolManager.RegisterToolList(event.Data.(dto.ToolListUpdateData).List)
-	case events.StreamCancelEvent:
-		instance.CancelStream(event.Data.(dto.StreamCancelData).RequestUUID)
-	case events.ToolResultEvent:
-		instance.ProcessToolResult(event.Data.(dto.ToolResultData))
-	}
+		instance.CallApi(event.Data.RequestUUID)
+	})
+	instance.bus.UpdateEnvironmentEvent.Subscribe(constants.LLMService, func(event events.Event[dto.EnvironmentUpdateData]) {
+		instance.messageManager.SetEnvironmentMessage(utils.EnvironmentUpdateDataToString(event.Data))
+	})
+	instance.bus.UpdateToolListEvent.Subscribe(constants.LLMService, func(event events.Event[dto.ToolListUpdateData]) {
+		instance.toolManager.RegisterToolList(event.Data.List)
+	})
+	instance.bus.StreamCancelEvent.Subscribe(constants.LLMService, func(event events.Event[dto.StreamCancelData]) {
+		instance.CancelStream(event.Data.RequestUUID)
+	})
+	instance.bus.ToolResultEvent.Subscribe(constants.LLMService, func(event events.Event[dto.ToolResultData]) {
+		instance.ProcessToolResult(event.Data)
+	})
 }
 
 func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
@@ -96,31 +86,22 @@ func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
 	}
 }
 
-func (instance *OllamaService) GetID() constants.Source {
-	return constants.LLMService
-}
-
 func (instance *OllamaService) UpdateEnvironmentToolList() {
-	instance.bus.Publish(
-		events.Event{
-			Type: events.RequestEnvironmentEvent,
+	instance.bus.RequestEnvironmentEvent.Publish(
+		events.Event[dto.EnvironmentRequestData]{
 			Data: dto.EnvironmentRequestData{
 				CreateUUID: uuid.New(),
 			},
-			Timestamp: time.Now(),
+			TimeStamp: time.Now(),
 			Source:    constants.LLMService,
+		})
+	instance.bus.RequestToolListEvent.Publish(events.Event[dto.RequestToolListData]{
+		Data: dto.RequestToolListData{
+			CreateUUID: uuid.New(),
 		},
-	)
-	instance.bus.Publish(
-		events.Event{
-			Type: events.RequestToolListEvent,
-			Data: dto.RequestToolListData{
-				CreateUUID: uuid.New(),
-			},
-			Timestamp: time.Now(),
-			Source:    constants.LLMService,
-		},
-	)
+		TimeStamp: time.Now(),
+		Source:    constants.LLMService,
+	})
 }
 
 func (instance *OllamaService) AddAssistantMessage(message string) {
@@ -128,19 +109,16 @@ func (instance *OllamaService) AddAssistantMessage(message string) {
 }
 
 func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
-	instance.bus.Publish(
-		events.Event{
-			Type: events.StreamStartEvent,
-			Data: dto.StreamStartData{
-				RequestUUID: requestUUID,
-			},
-			Timestamp: time.Now(),
-			Source:    constants.LLMService,
+	instance.bus.StreamStartEvent.Publish(events.Event[dto.StreamStartData]{
+		Data: dto.StreamStartData{
+			RequestUUID: requestUUID,
 		},
-	)
+		TimeStamp: time.Now(),
+		Source:    constants.LLMService,
+	})
 	instance.StreamManager.StartStream(instance.client,
 		instance.bus, requestUUID,
-		instance.model,
+		instance.config.Model,
 		instance.toolManager.GetToolList(),
 		instance.messageManager.GetMessages(),
 		func(requestUUID uuid.UUID, response api.ChatResponse) error {
@@ -157,12 +135,16 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 func (instance *OllamaService) ProcessToolCalls(requestUUID uuid.UUID, ToolCalls []api.ToolCall) {
 	for _, call := range ToolCalls {
 		toolCallUUID := uuid.New()
-		service.PublishEvent(instance.bus, events.ToolCallEvent, dto.ToolCallData{
-			RequestUUID:  requestUUID,
-			ToolCallUUID: toolCallUUID,
-			ToolName:     call.Function.Name,
-			Parameters:   call.Function.Arguments,
-		}, constants.LLMService)
+		instance.bus.ToolCallEvent.Publish(events.Event[dto.ToolCallData]{
+			Data: dto.ToolCallData{
+				RequestUUID:  requestUUID,
+				ToolCallUUID: toolCallUUID,
+				ToolName:     call.Function.Name,
+				Parameters:   call.Function.Arguments,
+			},
+			TimeStamp: time.Now(),
+			Source:    constants.LLMService,
+		})
 		instance.toolManager.RegisterToolCall(requestUUID, toolCallUUID, call.Function.Name)
 	}
 }

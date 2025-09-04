@@ -1,6 +1,7 @@
 package main
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/events"
 	"DevCode/src/service/environment"
 	"DevCode/src/service/llm/ollama"
@@ -9,6 +10,7 @@ import (
 	"DevCode/src/service/tool"
 	"DevCode/src/viewinterface"
 	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/viper"
 )
@@ -16,17 +18,17 @@ import (
 func main() {
 	viper.SetConfigFile("env.toml")
 	viper.ReadInConfig()
-
+	config  , err:= config.LoadConfig()
 	bus, err := events.NewEventBus()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to config event bus: %v", err))
 	}
-	mcp.NewMcpService(bus)
-	ollama.NewOllamaService(bus)
+	mcp.NewMcpService(bus,config.McpServiceConfig)
+	ollama.NewOllamaService(bus,config.OllamaServiceConfig)
 	environment.NewEnvironmentService(bus)
 	message.NewMessageService(bus)
 	tool.NewToolService(bus)
-	model := viewinterface.NewMainModel(bus)
+	model := viewinterface.NewMainModel(bus,config.ViewConfig)
 	program := tea.NewProgram(
 		model,
 	)

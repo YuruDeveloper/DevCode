@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func NewSelectModel(choices []string, selectCallBack func(int), quitCallBack func(), style lipgloss.Style) *SelectModel {
+func NewSelectModel(choices []string, selectCallBack func(int), quitCallBack func(), style lipgloss.Style, selectChar string) *SelectModel {
 	return &SelectModel{
 		Choices:        choices,
 		SecltedIndex:   0,
@@ -16,6 +16,7 @@ func NewSelectModel(choices []string, selectCallBack func(int), quitCallBack fun
 		SelectCallBack: selectCallBack,
 		QuitCallBack:   quitCallBack,
 		Style:          style,
+		SelectChar:     selectChar,
 	}
 }
 
@@ -26,6 +27,7 @@ type SelectModel struct {
 	SelectCallBack func(int)
 	QuitCallBack   func()
 	Style          lipgloss.Style
+	SelectChar     string
 }
 
 func (instance *SelectModel) Init() tea.Cmd {
@@ -53,7 +55,7 @@ func (instance *SelectModel) View() string {
 	var builder strings.Builder
 	for index, choice := range instance.Choices {
 		if index == instance.SecltedIndex {
-			builder.WriteString("> ")
+			builder.WriteString(instance.SelectChar + " ")
 		} else {
 			builder.WriteString("  ")
 		}

@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"DevCode/src/config"
 	"sync"
 
 	"github.com/google/uuid"
@@ -8,24 +9,20 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-const (
-	DefaultToolSize            = 10
-	DefaultRequestContentsSize = 10
-	DefaultToolCallSize        = 20
-)
-
 type RequestContext struct {
 	ToolCalls map[uuid.UUID]string
 }
 
-func NewToolManager() *ToolManager {
+func NewToolManager(config config.OllamaServiceConfig) *ToolManager {
 	return &ToolManager{
-		tools:           make([]api.Tool, 0, DefaultToolSize),
-		requestContents: make(map[uuid.UUID]*RequestContext, DefaultRequestContentsSize),
+		tools:           make([]api.Tool, 0, config.DefaultToolSize),
+		requestContents: make(map[uuid.UUID]*RequestContext, config.DefaultRequestContentsSize),
+		config:          config,
 	}
 }
 
 type ToolManager struct {
+	config          config.OllamaServiceConfig
 	tools           []api.Tool
 	requestContents map[uuid.UUID]*RequestContext
 	requestMutex    sync.RWMutex
@@ -35,7 +32,7 @@ func (instance *ToolManager) RegisterToolList(tools []*mcp.Tool) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
 	if instance.tools == nil {
-		instance.tools = make([]api.Tool, 0, DefaultToolSize)
+		instance.tools = make([]api.Tool, 0, instance.config.DefaultToolSize)
 	}
 	instance.tools = instance.tools[:0]
 	for _, tool := range tools {
@@ -56,16 +53,16 @@ func (instance *ToolManager) RegisterToolCall(requestUUID uuid.UUID, toolCallUUI
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
 	if instance.requestContents == nil {
-		instance.requestContents = make(map[uuid.UUID]*RequestContext, DefaultRequestContentsSize)
+		instance.requestContents = make(map[uuid.UUID]*RequestContext, instance.config.DefaultRequestContentsSize)
 	}
 	if content, exists := instance.requestContents[requestUUID]; exists {
 		if content.ToolCalls == nil {
-			content.ToolCalls = make(map[uuid.UUID]string, DefaultToolCallSize)
+			content.ToolCalls = make(map[uuid.UUID]string, instance.config.DefaultToolCallSize)
 		}
 		content.ToolCalls[toolCallUUID] = toolName
 	} else {
 		instance.requestContents[requestUUID] = &RequestContext{
-			ToolCalls: make(map[uuid.UUID]string, DefaultToolCallSize),
+			ToolCalls: make(map[uuid.UUID]string, instance.config.DefaultToolCallSize),
 		}
 		instance.requestContents[requestUUID].ToolCalls[toolCallUUID] = toolName
 	}

@@ -1,6 +1,7 @@
 package viewinterface
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
@@ -33,26 +34,17 @@ type PendingTool struct {
 	ToolCallUUID uuid.UUID
 }
 
-const (
-	Dot = "●"
-)
-
-func NewMainModel(bus *events.EventBus) *MainModel {
+func NewMainModel(bus *events.EventBus, config config.ViewConfig) *MainModel {
 	text := textarea.New()
 	text.Focus()
 
 	text.SetHeight(1)
 	text.ShowLineNumbers = false
-	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		PaddingLeft(1).
-		PaddingRight(2).
-		BorderForeground(lipgloss.ANSIColor(8))
-	text.FocusedStyle.Base = inputStyle
-	text.BlurredStyle.Base = inputStyle
+	text.FocusedStyle.Base = DefaultStyles.Input
+	text.BlurredStyle.Base = DefaultStyles.Input
 	text.SetPromptFunc(2, func(lineIdx int) string {
 		if lineIdx == 0 {
-			return "> "
+			return config.SelectChar + " "
 		}
 		return ""
 	})
@@ -62,9 +54,8 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 		[]string{"yes", "no"},
 		nil,
 		nil,
-		lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.ANSIColor(32)).Height(10).Width(20))
+		DefaultStyles.Select,
+		config.SelectChar)
 	model := &MainModel{
 		InputPort:        text,
 		Bus:              bus,
@@ -78,10 +69,7 @@ func NewMainModel(bus *events.EventBus) *MainModel {
 	}
 	model.SelectModel.SelectCallBack = model.Select
 	model.SelectModel.QuitCallBack = model.Quit
-	bus.Subscribe(events.StreamChunkParsedEvent, model)
-	bus.Subscribe(events.StreamChunkParsedErrorEvent, model)
-	bus.Subscribe(events.RequestToolUseEvent, model)
-	bus.Subscribe(events.ToolUseReportEvent, model)
+	model.Subscribe()
 	return model
 }
 
@@ -98,54 +86,46 @@ type MainModel struct {
 	ActiveTools      map[uuid.UUID]*ToolModel
 	PendingToolStack []*PendingTool
 	SelectModel      *SelectModel
+	Config           config.ViewConfig
 }
 
 func (instance *MainModel) SetProgram(program *tea.Program) {
 	instance.Program = program
 }
 
-func (instance *MainModel) HandleEvent(event events.Event) {
-	switch event.Type {
-	case events.StreamChunkParsedEvent:
-		data := event.Data.(dto.ParsedChunkData)
-		if data.RequestUUID == instance.MessageUUID && instance.Program != nil {
+func (instance *MainModel) Subscribe() {
+	instance.Bus.StreamChunkParsedEvent.Subscribe(constants.Model, func(event events.Event[dto.ParsedChunkData]) {
+		if event.Data.RequestUUID == instance.MessageUUID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
-				Content:    data.Content,
-				IsComplete: data.IsComplete,
+				Content:    event.Data.Content,
+				IsComplete: event.Data.IsComplete,
 			})
 		}
-	case events.StreamChunkParsedErrorEvent:
-		data := event.Data.(dto.ParsedChunkErrorData)
-		if data.RequestUUID == instance.MessageUUID && instance.Program != nil {
+	})
+	instance.Bus.StreamChunkParsedErrorEvent.Subscribe(constants.Model, func(event events.Event[dto.ParsedChunkErrorData]) {
+		if event.Data.RequestUUID == instance.MessageUUID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
-				Content:    data.Error,
+				Content:    event.Data.Error,
 				IsComplete: true,
 			})
 		}
-	case events.ToolUseReportEvent:
-		data := event.Data.(dto.ToolUseReportData)
-		if instance.Program != nil {
-			instance.Program.Send(data)
-		}
-	case events.RequestToolUseEvent:
-		data := event.Data.(dto.ToolUseReportData)
-		if instance.Program != nil {
-			instance.Program.Send(data)
-			instance.Program.Send(PendingTool{
-				RequestUUID:  data.RequestUUID,
-				ToolCallUUID: data.ToolCallUUID,
-			})
-		}
-	}
-}
-
-func (instance *MainModel) GetID() constants.Source {
-	return constants.Model
+	})
+	instance.Bus.ToolUseReportEvent.Subscribe(constants.Model, func(event events.Event[dto.ToolUseReportData]) {
+		instance.Program.Send(event.Data)
+	})
+	instance.Bus.RequestToolUseEvent.Subscribe(constants.Model, func(event events.Event[dto.ToolUseReportData]) {
+		instance.Program.Send(event.Data)
+		instance.Program.Send(PendingTool{
+			RequestUUID:  event.Data.RequestUUID,
+			ToolCallUUID: event.Data.ToolCallUUID,
+		})
+	})
 }
 
 func (instance *MainModel) Init() tea.Cmd {
 	return textinput.Blink
 }
+
 func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -159,19 +139,29 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, instance.Keys.Choice) && instance.Status != ToolDecision:
 			if instance.Status == UserInput {
 				instance.MessageUUID = uuid.New()
-				instance.PublishEvent(events.UserInputEvent, dto.UserRequestData{
-					SessionUUID: instance.SessionUUID,
-					RequestUUID: instance.MessageUUID,
-					Message:     instance.InputPort.Value(),
-				})
+				instance.Bus.UserInputEvent.Publish(
+					events.Event[dto.UserRequestData]{
+						Data: dto.UserRequestData{
+							SessionUUID: instance.SessionUUID,
+							RequestUUID: instance.MessageUUID,
+							Message:     instance.InputPort.Value(),
+						},
+						TimeStamp: time.Now(),
+						Source:    constants.Model,
+					},
+				)
 				instance.Status = AssistantInput
 			}
 			cmd = tea.Println(instance.InputPort.Value())
 			instance.InputPort.Reset()
 			return instance, cmd
 		case key.Matches(msg, instance.Keys.Cancel) && instance.Status != ToolDecision:
-			instance.PublishEvent(events.StreamCancelEvent, dto.StreamCancelData{
-				RequestUUID: instance.MessageUUID,
+			instance.Bus.StreamCancelEvent.Publish(events.Event[dto.StreamCancelData]{
+				Data: dto.StreamCancelData{
+					RequestUUID: instance.MessageUUID,
+				},
+				TimeStamp: time.Now(),
+				Source:    constants.Model,
 			})
 		}
 	case StreamUpdate:
@@ -193,7 +183,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				delete(instance.ActiveTools, msg.ToolCallUUID)
 			}
 		} else {
-			instance.ActiveTools[msg.ToolCallUUID] = NewToolModel(msg.ToolInfo)
+			instance.ActiveTools[msg.ToolCallUUID] = NewToolModel(msg.ToolInfo, instance.Config)
 		}
 	case PendingTool:
 		instance.PendingToolStack = append(instance.PendingToolStack, &msg)
@@ -241,25 +231,23 @@ func (instance *MainModel) View() string {
 }
 
 func (instance *MainModel) Select(selectIndex int) {
+	var accept bool
 	if selectIndex == 0 {
-		instance.PublishEvent(
-			events.UserDecisionEvent,
-			dto.UserDecisionData{
-				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
-				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
-				Accept:       true,
-			},
-		)
+		accept = true
 	} else {
-		instance.PublishEvent(
-			events.UserDecisionEvent,
-			dto.UserDecisionData{
+		accept = false
+	}
+	instance.Bus.UserDecisionEvent.Publish(
+		events.Event[dto.UserDecisionData]{
+			Data: dto.UserDecisionData{
 				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
 				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
-				Accept:       false,
+				Accept:       accept,
 			},
-		)
-	}
+			TimeStamp: time.Now(),
+			Source:    constants.Model,
+		},
+	)
 	instance.PendingToolStack = instance.PendingToolStack[1:]
 	if len(instance.PendingToolStack) == 0 {
 		instance.Status = AssistantInput
@@ -267,12 +255,15 @@ func (instance *MainModel) Select(selectIndex int) {
 }
 
 func (instance *MainModel) Quit() {
-	instance.PublishEvent(
-		events.UserDecisionEvent,
-		dto.UserDecisionData{
-			RequestUUID:  instance.PendingToolStack[0].RequestUUID,
-			ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
-			Accept:       false,
+	instance.Bus.UserDecisionEvent.Publish(
+		events.Event[dto.UserDecisionData]{
+			Data: dto.UserDecisionData{
+				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
+				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
+				Accept:       false,
+			},
+			TimeStamp: time.Now(),
+			Source:    constants.Model,
 		},
 	)
 	instance.PendingToolStack = instance.PendingToolStack[1:]
@@ -283,7 +274,7 @@ func (instance *MainModel) Quit() {
 
 func (instance *MainModel) AddToAssistantMessage(newContent string) {
 	if len(instance.AssistantMessage) == 0 {
-		instance.AssistantMessage = Dot + " " + newContent
+		instance.AssistantMessage = instance.Config.Dot + " " + newContent
 	} else {
 		instance.AssistantMessage += newContent
 	}
@@ -295,15 +286,4 @@ func (instance *MainModel) AddToAssistantMessage(newContent string) {
 func (instance *MainModel) UpdateSize(msg tea.WindowSizeMsg) {
 	instance.InputPort.SetWidth(msg.Width)
 	instance.MessagePort.Width = msg.Width
-}
-
-func (instance *MainModel) PublishEvent(eventType events.EventType, data any) {
-	instance.Bus.Publish(
-		events.Event{
-			Type:      eventType,
-			Data:      data,
-			Timestamp: time.Now(),
-			Source:    constants.Model,
-		},
-	)
 }

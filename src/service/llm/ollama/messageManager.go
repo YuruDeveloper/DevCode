@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"DevCode/src/config"
 	"sync"
 
 	"github.com/ollama/ollama/api"
@@ -12,18 +13,17 @@ const (
 )
 
 const (
-	Assistant       = "assistant"
-	Tool            = "tool"
-	System          = "system"
-	User            = "User"
-	EnvironmentInfo = "Here is useful information about the environment you are running in:\n"
+	Assistant = "assistant"
+	Tool      = "tool"
+	System    = "system"
+	User      = "User"
 )
 
-func NewMessageManager() *MessageManager {
+func NewMessageManager(config config.OllamaServiceConfig) *MessageManager {
 	return &MessageManager{
-		systemMessages:     make([]api.Message, 0, DefaultSystemMessageLength),
+		systemMessages:     make([]api.Message, 0, config.DefaultSystemMessageLength),
 		environmentMessage: api.Message{},
-		messages:           make([]api.Message, 0, MessageLimit+1),
+		messages:           make([]api.Message, 0, config.MessageLimit+1),
 	}
 }
 
@@ -32,6 +32,7 @@ type MessageManager struct {
 	environmentMessage api.Message
 	messages           []api.Message
 	messageMutex       sync.RWMutex
+	config             config.OllamaServiceConfig
 }
 
 func (instance *MessageManager) AddSystemMessage(content string) {
@@ -49,7 +50,7 @@ func (instance *MessageManager) SetEnvironmentMessage(content string) {
 	defer instance.messageMutex.Unlock()
 	instance.environmentMessage = api.Message{
 		Role:    System,
-		Content: EnvironmentInfo + content,
+		Content: instance.config.EnvironmentInfo + content,
 	}
 }
 
@@ -96,7 +97,7 @@ func (instance *MessageManager) GetMessages() []api.Message {
 }
 
 func (instance *MessageManager) checkMessageLimit() {
-	if len(instance.messages) > MessageLimit {
-		instance.messages = instance.messages[:MessageLimit]
+	if len(instance.messages) > instance.config.MessageLimit {
+		instance.messages = instance.messages[len(instance.messages)-instance.config.MessageLimit:]
 	}
 }
