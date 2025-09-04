@@ -1,13 +1,15 @@
 package events
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/dto"
 	"fmt"
+
 	"github.com/panjf2000/ants/v2"
 )
 
-func NewEventBus() (*EventBus, error) {
-	pool, err := ants.NewPool(10000, ants.WithPreAlloc(true))
+func NewEventBus(config config.EventBusConfig) (*EventBus, error) {
+	pool, err := ants.NewPool(config.PoolSize, ants.WithPreAlloc(true))
 	if err != nil {
 		return nil, fmt.Errorf("fail to create ants pool : %w", err)
 	}
