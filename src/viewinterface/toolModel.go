@@ -19,6 +19,7 @@ func NewToolModel(data string, config config.ViewConfig) *ToolModel {
 	return &ToolModel{
 		Status:   light,
 		ToolInfo: data,
+		Config:   config,
 	}
 }
 

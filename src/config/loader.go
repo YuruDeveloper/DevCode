@@ -3,8 +3,23 @@ package config
 import (
 	"github.com/spf13/viper"
 )
+const (
+	BackupDot = "●"
+	BackupSelectChar = ">"
+	BackupMessageLimit = 100
+	BackupDefaultSystemMessageLength = 10
+	BackupEnviromentInfo = "Here is useful information about the environment you are running in:\n"
+	BackupDefaultToolSize = 10
+	BackupDefaultRequestContentsSize = 10
+	BackupToolCallSize = 5
+	BackupDefaultActiveStreamSzie = 10
+	BackupName = "DevCode"
+	BackupVersion = "0.0.1"
+	BackupUrl = "http://127.0.0.1:11434"
+	BackupModel = "llama3.1:8b"
+	BackupPoolSize = 10000
+)
 
-// LoadConfig loads configuration from env.toml file
 func LoadConfig() (*Config, error) {
 	viewConfig := ViewConfig{
 		Dot:        viper.GetString("view.dot"),
@@ -37,31 +52,66 @@ func LoadConfig() (*Config, error) {
 
 	// Set default values if not configured
 	if viewConfig.Dot == "" {
-		viewConfig.Dot = "●"
+		viewConfig.Dot = BackupDot
 	}
 	if viewConfig.SelectChar == "" {
-		viewConfig.SelectChar = ">"
+		viewConfig.SelectChar = BackupSelectChar
 	}
+	
+	if mcpConfig.Name == "" {
+		mcpConfig.Name = BackupName
+	}
+
+	if mcpConfig.Version == "" {
+		mcpConfig.Version = BackupVersion
+	}
+
+	if mcpConfig.ServerName == "" {
+		mcpConfig.ServerName = BackupName
+	}
+
+	if mcpConfig.ServerVersion == "" {
+		mcpConfig.ServerVersion = BackupVersion
+	}
+
+	if ollamaConfig.Url == "" {
+		ollamaConfig.Url = BackupUrl
+	}
+
+	if ollamaConfig.Model == "" {
+		ollamaConfig.Model = BackupModel
+	}
+
 	if ollamaConfig.MessageLimit == 0 {
-		ollamaConfig.MessageLimit = 100
+		ollamaConfig.MessageLimit = BackupMessageLimit
 	}
+
 	if ollamaConfig.DefaultSystemMessageLength == 0 {
-		ollamaConfig.DefaultSystemMessageLength = 10
+		ollamaConfig.DefaultSystemMessageLength = BackupDefaultSystemMessageLength
 	}
+
 	if ollamaConfig.EnvironmentInfo == "" {
-		ollamaConfig.EnvironmentInfo = "Here is useful information about the environment you are running in:\n"
+		ollamaConfig.EnvironmentInfo = BackupEnviromentInfo
 	}
+
 	if ollamaConfig.DefaultToolSize == 0 {
-		ollamaConfig.DefaultToolSize = 10
+		ollamaConfig.DefaultToolSize = BackupDefaultToolSize
 	}
+
 	if ollamaConfig.DefaultRequestContentsSize == 0 {
-		ollamaConfig.DefaultRequestContentsSize = 10
+		ollamaConfig.DefaultRequestContentsSize = BackupDefaultRequestContentsSize
 	}
+
 	if ollamaConfig.DefaultToolCallSize == 0 {
-		ollamaConfig.DefaultToolCallSize = 5
+		ollamaConfig.DefaultToolCallSize = BackupToolCallSize
 	}
+
 	if ollamaConfig.DefaultActiveStreamSize == 0 {
-		ollamaConfig.DefaultActiveStreamSize = 10
+		ollamaConfig.DefaultActiveStreamSize = BackupDefaultActiveStreamSzie
+	}
+	
+	if eventBusConfig.PoolSize == 0 {
+		eventBusConfig.PoolSize = BackupPoolSize
 	}
 
 	config := &Config{

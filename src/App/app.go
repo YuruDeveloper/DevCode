@@ -15,31 +15,33 @@ import (
 	"github.com/spf13/viper"
 )
 
-func NewApp() *App{
+func NewApp() (*App, error) {
 	viper.SetConfigFile("env.toml")
-	viper.ReadInConfig()
-	config , err:= config.LoadConfig()
+	if err := viper.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("error reading config file: %w", err)
+	}
+	config, err := config.LoadConfig()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("error loading config: %w", err)
 	}
-	 bus, err := events.NewEventBus(config.EventBusConfig)
-	 if err != nil {
-		return nil
-	}
-	ollama , err:= ollama.NewOllamaService(bus,config.OllamaServiceConfig)
+	bus, err := events.NewEventBus(config.EventBusConfig)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to create event bus: %w", err)
 	}
-	app := &App {
-		bus: bus,
-		model: viewinterface.NewMainModel(bus,config.ViewConfig),
-		mcpService: mcp.NewMcpService(bus,config.McpServiceConfig),
-		toolService: tool.NewToolService(bus),
-		messageSerivce: message.NewMessageService(bus),
+	ollama, err := ollama.NewOllamaService(bus, config.OllamaServiceConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ollama service: %w", err)
+	}
+	app := &App{
+		bus:                bus,
+		model:              viewinterface.NewMainModel(bus, config.ViewConfig),
+		mcpService:         mcp.NewMcpService(bus, config.McpServiceConfig),
+		toolService:        tool.NewToolService(bus),
+		messageSerivce:     message.NewMessageService(bus),
 		environmentService: environment.NewEnvironmentService(bus),
-		ollamaService: ollama,
+		ollamaService:      ollama,
 	}
-	return app
+	return app, nil
 }
 
 type App struct{

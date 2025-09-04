@@ -66,6 +66,7 @@ func NewMainModel(bus *events.EventBus, config config.ViewConfig) *MainModel {
 		ActiveTools:      make(map[uuid.UUID]*ToolModel),
 		PendingToolStack: make([]*PendingTool, 0, 5),
 		SelectModel:      selectModel,
+		Config:           config, // Add this line
 	}
 	model.SelectModel.SelectCallBack = model.Select
 	model.SelectModel.QuitCallBack = model.Quit

@@ -52,6 +52,7 @@ func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) (
 		StreamManager:  NewStreamManager(config),
 	}
 	service.messageManager.AddSystemMessage(string(systemPrompt))
+	service.Subscribe()
 	return service, nil
 }
 
