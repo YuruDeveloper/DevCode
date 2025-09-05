@@ -1,6 +1,7 @@
 package viewinterface
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
@@ -14,9 +15,11 @@ import (
 
 func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
-	bus, err := events.NewEventBus()
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
 	assert.NoError(t, err, "EventBus 생성 실패")
-	mainModel := viewinterface.NewMainModel(bus)
+	viewConfig := config.ViewConfig{Dot: "●", SelectChar: ">"}
+	mainModel := viewinterface.NewMainModel(bus, viewConfig)
 
 	// Tool 호출 UUID 생성
 	toolCallID := uuid.New()
@@ -57,9 +60,11 @@ func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 
 func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
-	bus, err := events.NewEventBus()
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
 	assert.NoError(t, err, "EventBus 생성 실패")
-	mainModel := viewinterface.NewMainModel(bus)
+	viewConfig := config.ViewConfig{Dot: "●", SelectChar: ">"}
+	mainModel := viewinterface.NewMainModel(bus, viewConfig)
 
 	toolCallID := uuid.New()
 	toolInfo := "이벤트 테스트 툴"
@@ -95,9 +100,11 @@ func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 
 func TestMainModel_ToolSuccessDisplaysGreenLight(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
-	bus, err := events.NewEventBus()
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
 	assert.NoError(t, err, "EventBus 생성 실패")
-	mainModel := viewinterface.NewMainModel(bus)
+	viewConfig := config.ViewConfig{Dot: "●", SelectChar: ">"}
+	mainModel := viewinterface.NewMainModel(bus, viewConfig)
 
 	toolCallID := uuid.New()
 	toolInfo := "성공 테스트 툴"

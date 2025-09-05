@@ -2,6 +2,8 @@ package events
 
 import (
 	"DevCode/src/constants"
+	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"github.com/panjf2000/ants/v2"
@@ -40,7 +42,7 @@ func (instance *TypedBus[T]) Publish(event Event[T]) {
 			func() {
 				defer func() {
 					if recover := recover(); recover != nil {
-						// todo : recover deeling
+						fmt.Printf("PANIC %v\n %s\n",recover,debug.Stack())
 					}
 				}()
 				handler(event)

@@ -1,6 +1,7 @@
 package environment_test
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
@@ -12,121 +13,149 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockEnvironmentBus struct {
-	PublishedEvents []events.Event
-	Subscribers     map[events.EventType][]events.Subscriber
+type MockEnvironmentUpdateHandler struct {
+	ReceivedEvents []events.Event[dto.EnvironmentUpdateData]
 }
 
-func NewMockEnvironmentBus() *MockEnvironmentBus {
-	return &MockEnvironmentBus{
-		PublishedEvents: make([]events.Event, 0),
-		Subscribers:     make(map[events.EventType][]events.Subscriber),
+func NewMockEnvironmentUpdateHandler() *MockEnvironmentUpdateHandler {
+	return &MockEnvironmentUpdateHandler{
+		ReceivedEvents: make([]events.Event[dto.EnvironmentUpdateData], 0),
 	}
 }
 
-func (m *MockEnvironmentBus) Subscribe(eventType events.EventType, subscriber events.Subscriber) {
-	m.Subscribers[eventType] = append(m.Subscribers[eventType], subscriber)
-}
-
-func (m *MockEnvironmentBus) UnSubscribe(eventType events.EventType, subscriberID constants.Source) {
-	subscribers := m.Subscribers[eventType]
-	for i, subscriber := range subscribers {
-		if subscriber.GetID() == subscriberID {
-			m.Subscribers[eventType] = append(subscribers[:i], subscribers[i+1:]...)
-			return
-		}
-	}
-}
-
-func (m *MockEnvironmentBus) Publish(event events.Event) {
-	m.PublishedEvents = append(m.PublishedEvents, event)
+func (m *MockEnvironmentUpdateHandler) HandleEvent(event events.Event[dto.EnvironmentUpdateData]) {
+	m.ReceivedEvents = append(m.ReceivedEvents, event)
 }
 
 func TestNewEnvironmentService(t *testing.T) {
-	mockBus := NewMockEnvironmentBus()
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
+	require.NoError(t, err)
+	defer bus.Close()
 
-	service := environment.NewEnvironmentService(mockBus)
+	service := environment.NewEnvironmentService(bus)
 
 	assert.NotNil(t, service)
-	assert.Equal(t, constants.EnvironmentService, service.GetID())
-
-	subscribers := mockBus.Subscribers[events.RequestEnvironmentEvent]
-	require.Len(t, subscribers, 1)
-	assert.Equal(t, constants.EnvironmentService, subscribers[0].GetID())
 }
 
 func TestEnvironmentService_HandleEvent_RequestEnvironmentEvent(t *testing.T) {
-	mockBus := NewMockEnvironmentBus()
-	service := environment.NewEnvironmentService(mockBus)
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
+	require.NoError(t, err)
+	defer bus.Close()
 
-	requestEvent := events.Event{
-		Type:      events.RequestEnvironmentEvent,
-		Data:      nil,
-		Timestamp: time.Now(),
+	// Environment update 이벤트를 받을 핸들러 설정
+	updateHandler := NewMockEnvironmentUpdateHandler()
+	bus.UpdateEnvironmentEvent.Subscribe(constants.Model, updateHandler.HandleEvent)
+
+	_ = environment.NewEnvironmentService(bus)
+
+	// Request Environment 이벤트 발행
+	requestEvent := events.Event[dto.EnvironmentRequestData]{
+		Data:      dto.EnvironmentRequestData{},
+		TimeStamp: time.Now(),
 		Source:    constants.MessageService,
 	}
 
-	service.HandleEvent(requestEvent)
+	// Environment Service의 HandleEvent를 직접 호출하는 대신
+	// EventBus를 통해 이벤트 발행
+	bus.RequestEnvironmentEvent.Publish(requestEvent)
 
-	require.Len(t, mockBus.PublishedEvents, 1)
+	// 이벤트 처리 대기
+	time.Sleep(100 * time.Millisecond)
 
-	publishedEvent := mockBus.PublishedEvents[0]
-	assert.Equal(t, events.UpdateEnvironmentEvent, publishedEvent.Type)
+	require.Len(t, updateHandler.ReceivedEvents, 1)
+
+	publishedEvent := updateHandler.ReceivedEvents[0]
 	assert.Equal(t, constants.EnvironmentService, publishedEvent.Source)
 
-	envData, ok := publishedEvent.Data.(dto.EnvironmentUpdateData)
-	require.True(t, ok)
-
+	envData := publishedEvent.Data
 	assert.NotEmpty(t, envData.CreateUUID)
 	assert.NotEmpty(t, envData.Cwd)
 	assert.NotEmpty(t, envData.OS)
 	assert.NotEmpty(t, envData.TodayDate)
 
-	_, err := time.Parse("2006-01-02", envData.TodayDate)
+	// 날짜 형식 검증
+	_, err = time.Parse("2006-01-02", envData.TodayDate)
 	assert.NoError(t, err)
 }
 
-func TestEnvironmentService_HandleEvent_IgnoreOtherEvents(t *testing.T) {
-	mockBus := NewMockEnvironmentBus()
-	service := environment.NewEnvironmentService(mockBus)
-
-	otherEvent := events.Event{
-		Type:      events.UserInputEvent,
-		Data:      "test data",
-		Timestamp: time.Now(),
-		Source:    constants.MessageService,
-	}
-
-	service.HandleEvent(otherEvent)
-
-	assert.Len(t, mockBus.PublishedEvents, 0)
-}
-
 func TestEnvironmentService_EnvironmentData_UniqueUUIDs(t *testing.T) {
-	mockBus := NewMockEnvironmentBus()
-	service := environment.NewEnvironmentService(mockBus)
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
+	require.NoError(t, err)
+	defer bus.Close()
 
+	updateHandler := NewMockEnvironmentUpdateHandler()
+	bus.UpdateEnvironmentEvent.Subscribe(constants.Model, updateHandler.HandleEvent)
+
+	_ = environment.NewEnvironmentService(bus)
+
+	// 두 번의 환경 정보 요청
 	for i := 0; i < 2; i++ {
-		requestEvent := events.Event{
-			Type:      events.RequestEnvironmentEvent,
-			Data:      nil,
-			Timestamp: time.Now(),
+		requestEvent := events.Event[dto.EnvironmentRequestData]{
+			Data:      dto.EnvironmentRequestData{},
+			TimeStamp: time.Now(),
 			Source:    constants.MessageService,
 		}
-		service.HandleEvent(requestEvent)
+		bus.RequestEnvironmentEvent.Publish(requestEvent)
 	}
 
-	require.Len(t, mockBus.PublishedEvents, 2)
+	// 이벤트 처리 대기
+	time.Sleep(200 * time.Millisecond)
 
-	envData1, ok1 := mockBus.PublishedEvents[0].Data.(dto.EnvironmentUpdateData)
-	envData2, ok2 := mockBus.PublishedEvents[1].Data.(dto.EnvironmentUpdateData)
+	require.Len(t, updateHandler.ReceivedEvents, 2)
 
-	require.True(t, ok1)
-	require.True(t, ok2)
+	envData1 := updateHandler.ReceivedEvents[0].Data
+	envData2 := updateHandler.ReceivedEvents[1].Data
 
+	// 환경 정보는 동일해야 함
 	assert.Equal(t, envData1.Cwd, envData2.Cwd)
 	assert.Equal(t, envData1.OS, envData2.OS)
 	assert.Equal(t, envData1.TodayDate, envData2.TodayDate)
 
+	// UUID는 다르게 생성되어야 함
 	assert.NotEqual(t, envData1.CreateUUID, envData2.CreateUUID)
+}
+
+func TestEnvironmentService_EnvironmentData_Consistency(t *testing.T) {
+	eventBusConfig := config.EventBusConfig{PoolSize: 100}
+	bus, err := events.NewEventBus(eventBusConfig)
+	require.NoError(t, err)
+	defer bus.Close()
+
+	updateHandler := NewMockEnvironmentUpdateHandler()
+	bus.UpdateEnvironmentEvent.Subscribe(constants.Model, updateHandler.HandleEvent)
+
+	_ = environment.NewEnvironmentService(bus)
+
+	requestEvent := events.Event[dto.EnvironmentRequestData]{
+		Data:      dto.EnvironmentRequestData{},
+		TimeStamp: time.Now(),
+		Source:    constants.MessageService,
+	}
+	bus.RequestEnvironmentEvent.Publish(requestEvent)
+
+	// 이벤트 처리 대기
+	time.Sleep(100 * time.Millisecond)
+
+	require.Len(t, updateHandler.ReceivedEvents, 1)
+
+	envData := updateHandler.ReceivedEvents[0].Data
+
+	// OS 정보는 빈 문자열이 아니어야 함
+	assert.NotEmpty(t, envData.OS)
+	
+	// 현재 작업 디렉토리는 빈 문자열이 아니어야 함
+	assert.NotEmpty(t, envData.Cwd)
+	
+	// 날짜는 YYYY-MM-DD 형식이어야 함
+	parsedDate, err := time.Parse("2006-01-02", envData.TodayDate)
+	require.NoError(t, err)
+	
+	// 날짜는 오늘과 비슷해야 함 (테스트 실행 시점 기준)
+	today := time.Now()
+	diff := parsedDate.Sub(today.Truncate(24 * time.Hour))
+	assert.True(t, diff >= -24*time.Hour && diff <= 24*time.Hour, 
+		"날짜가 오늘과 너무 차이남: %v", envData.TodayDate)
 }
