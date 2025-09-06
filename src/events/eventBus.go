@@ -1,43 +1,43 @@
 package events
 
 import (
+	devcodeerror "DevCode/src/DevCodeError"
 	"DevCode/src/config"
 	"DevCode/src/dto"
-	"fmt"
-
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 )
 
-func NewEventBus(config config.EventBusConfig) (*EventBus, error) {
+func NewEventBus(config config.EventBusConfig, logger *zap.Logger) (*EventBus, error) {
 	pool, err := ants.NewPool(config.PoolSize, ants.WithPreAlloc(true))
 	if err != nil {
-		return nil, fmt.Errorf("fail to create ants pool : %w", err)
+		return nil, devcodeerror.Wrap(err, devcodeerror.FailCreateEventBus, "Fail Create Ant Pool")
 	}
 	return &EventBus{
-		UserInputEvent:    NewTypedBus[dto.UserRequestData](pool),
-		UserDecisionEvent: NewTypedBus[dto.UserDecisionData](pool),
+		UserInputEvent:    NewTypedBus[dto.UserRequestData](pool, logger),
+		UserDecisionEvent: NewTypedBus[dto.UserDecisionData](pool, logger),
 
-		RequestToolUseEvent: NewTypedBus[dto.ToolUseReportData](pool),
-		ToolCallEvent:       NewTypedBus[dto.ToolCallData](pool),
-		AcceptToolEvent:     NewTypedBus[dto.ToolCallData](pool),
-		ToolRawResultEvent:  NewTypedBus[dto.ToolRawResultData](pool),
-		ToolResultEvent:     NewTypedBus[dto.ToolResultData](pool),
-		ToolUseReportEvent:  NewTypedBus[dto.ToolUseReportData](pool),
+		RequestToolUseEvent: NewTypedBus[dto.ToolUseReportData](pool, logger),
+		ToolCallEvent:       NewTypedBus[dto.ToolCallData](pool, logger),
+		AcceptToolEvent:     NewTypedBus[dto.ToolCallData](pool, logger),
+		ToolRawResultEvent:  NewTypedBus[dto.ToolRawResultData](pool, logger),
+		ToolResultEvent:     NewTypedBus[dto.ToolResultData](pool, logger),
+		ToolUseReportEvent:  NewTypedBus[dto.ToolUseReportData](pool, logger),
 
-		RequestEnvironmentEvent: NewTypedBus[dto.EnvironmentRequestData](pool),
-		UpdateEnvironmentEvent:  NewTypedBus[dto.EnvironmentUpdateData](pool),
+		RequestEnvironmentEvent: NewTypedBus[dto.EnvironmentRequestData](pool, logger),
+		UpdateEnvironmentEvent:  NewTypedBus[dto.EnvironmentUpdateData](pool, logger),
 
-		RequestToolListEvent: NewTypedBus[dto.RequestToolListData](pool),
-		UpdateToolListEvent:  NewTypedBus[dto.ToolListUpdateData](pool),
+		RequestToolListEvent: NewTypedBus[dto.RequestToolListData](pool, logger),
+		UpdateToolListEvent:  NewTypedBus[dto.ToolListUpdateData](pool, logger),
 
-		StreamStartEvent:    NewTypedBus[dto.StreamStartData](pool),
-		StreamChunkEvent:    NewTypedBus[dto.StreamChunkData](pool),
-		StreamCompleteEvent: NewTypedBus[dto.StreamCompleteData](pool),
-		StreamErrorEvent:    NewTypedBus[dto.StreamErrorData](pool),
-		StreamCancelEvent:   NewTypedBus[dto.StreamCancelData](pool),
+		StreamStartEvent:    NewTypedBus[dto.StreamStartData](pool, logger),
+		StreamChunkEvent:    NewTypedBus[dto.StreamChunkData](pool, logger),
+		StreamCompleteEvent: NewTypedBus[dto.StreamCompleteData](pool, logger),
+		StreamErrorEvent:    NewTypedBus[dto.StreamErrorData](pool, logger),
+		StreamCancelEvent:   NewTypedBus[dto.StreamCancelData](pool, logger),
 
-		StreamChunkParsedEvent:      NewTypedBus[dto.ParsedChunkData](pool),
-		StreamChunkParsedErrorEvent: NewTypedBus[dto.ParsedChunkErrorData](pool),
+		StreamChunkParsedEvent:      NewTypedBus[dto.ParsedChunkData](pool, logger),
+		StreamChunkParsedErrorEvent: NewTypedBus[dto.ParsedChunkErrorData](pool, logger),
 		pool:                        pool,
 	}, nil
 }

@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
@@ -9,13 +10,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/spf13/viper"
 )
 
-func NewToolService(bus *events.EventBus) *ToolService {
+func NewToolService(bus *events.EventBus, config config.ToolServiceConfig) *ToolService {
 	service := &ToolService{
 		bus:     bus,
-		allowed: viper.GetStringSlice("tool.allowed"),
+		allowed: config.Allowed,
 	}
 	service.Subscribe()
 	return service
@@ -171,7 +171,7 @@ func (instance *ToolService) ToolInfo(name string, parameters map[string]any) st
 	switch name {
 	case "Read":
 		return name + " (" + parameters["file_path"].(string) + ")"
-	case "LS":
+	case "List":
 		return "List(" + parameters["path"].(string) + ")"
 	}
 	return ""

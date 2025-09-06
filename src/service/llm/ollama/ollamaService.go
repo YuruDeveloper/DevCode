@@ -6,10 +6,7 @@ import (
 	"DevCode/src/dto"
 	"DevCode/src/events"
 	"DevCode/src/utils"
-	"fmt"
 	"net/http"
-	"net/url"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,24 +22,8 @@ type OllamaService struct {
 	StreamManager  IStreamManager
 }
 
-func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) (*OllamaService, error) {
-	parsedUrl, err := url.Parse(config.Url)
-	if err != nil {
-		return nil, fmt.Errorf("invalid Ollama URL: %v", err)
-	}
-
-	ollamaClient := api.NewClient(parsedUrl, http.DefaultClient)
-
-	if config.System == "" {
-		return nil, fmt.Errorf("prompt.system not configured in env.toml")
-	}
-
-	systemPrompt, err := os.ReadFile(config.System)
-
-	if err != nil {
-		return nil, fmt.Errorf("fail to Read SystemPrompt %v", err)
-	}
-
+func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) *OllamaService {
+	ollamaClient := api.NewClient(config.Url, http.DefaultClient)
 	service := &OllamaService{
 		client:         ollamaClient,
 		config:         config,
@@ -51,9 +32,9 @@ func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) (
 		toolManager:    NewToolManager(config),
 		StreamManager:  NewStreamManager(config),
 	}
-	service.messageManager.AddSystemMessage(string(systemPrompt))
+	service.messageManager.AddSystemMessage(config.Prompt)
 	service.Subscribe()
-	return service, nil
+	return service
 }
 
 func (instance *OllamaService) Subscribe() {

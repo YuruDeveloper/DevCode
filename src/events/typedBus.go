@@ -1,18 +1,19 @@
 package events
 
 import (
+	devcodeerror "DevCode/src/DevCodeError"
 	"DevCode/src/constants"
-	"fmt"
-	"runtime/debug"
 	"sync"
 
 	"github.com/panjf2000/ants/v2"
+	"go.uber.org/zap"
 )
 
-func NewTypedBus[T any](pool *ants.Pool) *TypedBus[T] {
+func NewTypedBus[T any](pool *ants.Pool, logger *zap.Logger) *TypedBus[T] {
 	return &TypedBus[T]{
 		pool:     pool,
 		handlers: make(map[constants.Source]func(Event[T])),
+		logger:   logger,
 	}
 }
 
@@ -20,6 +21,7 @@ type TypedBus[T any] struct {
 	handlers     map[constants.Source]func(Event[T])
 	pool         *ants.Pool
 	handlerMutex sync.RWMutex
+	logger       *zap.Logger
 }
 
 func (instance *TypedBus[T]) Subscribe(source constants.Source, handler func(Event[T])) {
@@ -42,7 +44,7 @@ func (instance *TypedBus[T]) Publish(event Event[T]) {
 			func() {
 				defer func() {
 					if recover := recover(); recover != nil {
-						fmt.Printf("PANIC %v\n %s\n", recover, debug.Stack())
+						instance.logger.Error("", zap.Error(devcodeerror.Wrap(nil, devcodeerror.FailHandleEvent, "Panic with handle event")), zap.Any("recover", recover))
 					}
 				}()
 				handler(event)
