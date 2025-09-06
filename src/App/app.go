@@ -37,21 +37,21 @@ func NewApp() (*App, error) {
 		model:              viewinterface.NewMainModel(bus, config.ViewConfig),
 		mcpService:         mcp.NewMcpService(bus, config.McpServiceConfig),
 		toolService:        tool.NewToolService(bus),
-		messageSerivce:     message.NewMessageService(bus),
+		messageService:     message.NewMessageService(bus),
 		environmentService: environment.NewEnvironmentService(bus),
 		ollamaService:      ollama,
 	}
 	return app, nil
 }
 
-type App struct{
-	bus *events.EventBus
-	model *viewinterface.MainModel
-	mcpService *mcp.McpService
+type App struct {
+	bus                *events.EventBus
+	model              *viewinterface.MainModel
+	mcpService         *mcp.McpService
 	environmentService *environment.EnvironmentService
-	ollamaService *ollama.OllamaService
-	toolService *tool.ToolService
-	messageSerivce *message.MessageService
+	ollamaService      *ollama.OllamaService
+	toolService        *tool.ToolService
+	messageService     *message.MessageService
 }
 
 func (instance *App) Run() {
@@ -62,8 +62,7 @@ func (instance *App) Run() {
 	defer func() {
 		instance.bus.Close()
 	}()
-	if _ , err := program.Run() ; err != nil {
-		fmt.Printf("error : %v",err)
+	if _, err := program.Run(); err != nil {
+		fmt.Printf("error : %v", err)
 	}
 }
-

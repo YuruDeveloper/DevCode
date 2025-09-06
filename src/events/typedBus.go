@@ -42,7 +42,7 @@ func (instance *TypedBus[T]) Publish(event Event[T]) {
 			func() {
 				defer func() {
 					if recover := recover(); recover != nil {
-						fmt.Printf("PANIC %v\n %s\n",recover,debug.Stack())
+						fmt.Printf("PANIC %v\n %s\n", recover, debug.Stack())
 					}
 				}()
 				handler(event)

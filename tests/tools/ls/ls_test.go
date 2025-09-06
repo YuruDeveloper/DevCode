@@ -1,7 +1,7 @@
 package ls_test
 
 import (
-	"DevCode/src/tools/ls"
+	"DevCode/src/tools/list"
 	"context"
 	"os"
 	"path/filepath"
@@ -14,24 +14,24 @@ import (
 )
 
 func TestTool_Name(t *testing.T) {
-	tool := &ls.Tool{}
-	assert.Equal(t, "LS", tool.Name())
+	tool := &list.Tool{}
+	assert.Equal(t, "List", tool.Name())
 }
 
 func TestTool_Description(t *testing.T) {
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	description := tool.Description()
 	assert.Contains(t, description, "Lists files and directories")
 	assert.Contains(t, description, "absolute path")
 }
 
 func TestTool_Handler_InvalidPath(t *testing.T) {
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	handler := tool.Handler()
 	
 	// 상대 경로 테스트
-	params := &mcp.CallToolParamsFor[ls.Input]{
-		Arguments: ls.Input{
+	params := &mcp.CallToolParamsFor[list.Input]{
+		Arguments: list.Input{
 			Path: "relative/path",
 		},
 	}
@@ -44,11 +44,11 @@ func TestTool_Handler_InvalidPath(t *testing.T) {
 }
 
 func TestTool_Handler_EmptyPath(t *testing.T) {
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	handler := tool.Handler()
 	
-	params := &mcp.CallToolParamsFor[ls.Input]{
-		Arguments: ls.Input{
+	params := &mcp.CallToolParamsFor[list.Input]{
+		Arguments: list.Input{
 			Path: "",
 		},
 	}
@@ -61,11 +61,11 @@ func TestTool_Handler_EmptyPath(t *testing.T) {
 }
 
 func TestTool_Handler_NonExistentPath(t *testing.T) {
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	handler := tool.Handler()
 	
-	params := &mcp.CallToolParamsFor[ls.Input]{
-		Arguments: ls.Input{
+	params := &mcp.CallToolParamsFor[list.Input]{
+		Arguments: list.Input{
 			Path: "/non/existent/path",
 		},
 	}
@@ -93,11 +93,11 @@ func TestTool_Handler_ValidPath(t *testing.T) {
 	err = os.Mkdir(testDir, 0755)
 	require.NoError(t, err)
 	
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	handler := tool.Handler()
 	
-	params := &mcp.CallToolParamsFor[ls.Input]{
-		Arguments: ls.Input{
+	params := &mcp.CallToolParamsFor[list.Input]{
+		Arguments: list.Input{
 			Path: tempDir,
 		},
 	}
@@ -137,11 +137,11 @@ func TestTool_Handler_WithIgnorePatterns(t *testing.T) {
 		require.NoError(t, err)
 	}
 	
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	handler := tool.Handler()
 	
-	params := &mcp.CallToolParamsFor[ls.Input]{
-		Arguments: ls.Input{
+	params := &mcp.CallToolParamsFor[list.Input]{
+		Arguments: list.Input{
 			Path:   tempDir,
 			Ignore: []string{"*.tmp"},
 		},
@@ -164,7 +164,7 @@ func TestTool_Handler_WithIgnorePatterns(t *testing.T) {
 }
 
 func TestTool_ShouldIgnore(t *testing.T) {
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	
 	testCases := []struct {
 		name     string
@@ -235,7 +235,7 @@ func TestTool_Helper_NestedDirectories(t *testing.T) {
 		require.NoError(t, err)
 	}
 	
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	result := tool.Helper(tempDir, []string{})
 	
 	// 결과에 모든 레벨의 파일과 디렉토리가 포함되는지 확인
@@ -263,7 +263,7 @@ func TestTool_Helper_EmptyDirectory(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 	
-	tool := &ls.Tool{}
+	tool := &list.Tool{}
 	result := tool.Helper(tempDir, []string{})
 	
 	// 빈 디렉토리는 빈 문자열을 반환해야 함

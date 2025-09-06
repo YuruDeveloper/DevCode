@@ -3,21 +3,22 @@ package config
 import (
 	"github.com/spf13/viper"
 )
+
 const (
-	BackupDot = "●"
-	BackupSelectChar = ">"
-	BackupMessageLimit = 100
+	BackupDot                        = "●"
+	BackupSelectChar                 = ">"
+	BackupMessageLimit               = 100
 	BackupDefaultSystemMessageLength = 10
-	BackupEnviromentInfo = "Here is useful information about the environment you are running in:\n"
-	BackupDefaultToolSize = 10
+	BackupEnviromentInfo             = "Here is useful information about the environment you are running in:\n"
+	BackupDefaultToolSize            = 10
 	BackupDefaultRequestContentsSize = 10
-	BackupToolCallSize = 5
-	BackupDefaultActiveStreamSzie = 10
-	BackupName = "DevCode"
-	BackupVersion = "0.0.1"
-	BackupUrl = "http://127.0.0.1:11434"
-	BackupModel = "llama3.1:8b"
-	BackupPoolSize = 10000
+	BackupToolCallSize               = 5
+	BackupDefaultActiveStreamSzie    = 10
+	BackupName                       = "DevCode"
+	BackupVersion                    = "0.0.1"
+	BackupUrl                        = "http://127.0.0.1:11434"
+	BackupModel                      = "llama3.1:8b"
+	BackupPoolSize                   = 10000
 )
 
 func LoadConfig() (*Config, error) {
@@ -57,7 +58,7 @@ func LoadConfig() (*Config, error) {
 	if viewConfig.SelectChar == "" {
 		viewConfig.SelectChar = BackupSelectChar
 	}
-	
+
 	if mcpConfig.Name == "" {
 		mcpConfig.Name = BackupName
 	}
@@ -109,7 +110,7 @@ func LoadConfig() (*Config, error) {
 	if ollamaConfig.DefaultActiveStreamSize == 0 {
 		ollamaConfig.DefaultActiveStreamSize = BackupDefaultActiveStreamSzie
 	}
-	
+
 	if eventBusConfig.PoolSize == 0 {
 		eventBusConfig.PoolSize = BackupPoolSize
 	}

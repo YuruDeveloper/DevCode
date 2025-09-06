@@ -5,7 +5,7 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
-	"DevCode/src/tools/ls"
+	"DevCode/src/tools/list"
 	"DevCode/src/tools/read"
 	"DevCode/src/types"
 	"context"
@@ -66,7 +66,7 @@ func (instance *McpService) Subscribe() {
 
 func (instance *McpService) InitTools() {
 	InsertTool(instance, &read.Tool{})
-	InsertTool(instance, &ls.Tool{})
+	InsertTool(instance, &list.Tool{})
 }
 
 func InsertTool[T any](server *McpService, tool types.Tool[T]) {
