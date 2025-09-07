@@ -6,12 +6,12 @@ import (
 	"DevCode/src/dto"
 	"DevCode/src/events"
 	"DevCode/src/types"
+	"go.uber.org/zap"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
-	"go.uber.org/zap"
 )
 
 const (
@@ -80,7 +80,7 @@ func (instance *EnvironmentService) UpdateEnvironmentInfo() {
 	version := instance.checkVersion()
 	instance.bus.UpdateEnvironmentEvent.Publish(events.Event[dto.EnvironmentUpdateData]{
 		Data: dto.EnvironmentUpdateData{
-			CreateID:       	types.NewCreateID(),
+			CreateID:           types.NewCreateID(),
 			Cwd:                cwd,
 			OS:                 runtime.GOOS,
 			OSVersion:          version,

@@ -3,9 +3,9 @@ package ollama
 import (
 	"DevCode/src/config"
 	"DevCode/src/types"
-	"sync"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ollama/ollama/api"
+	"sync"
 )
 
 type RequestContext struct {
@@ -54,7 +54,7 @@ func (instance *ToolManager) RegisterToolCall(requestID types.RequestID, toolCal
 	if content, exists := instance.requestContents[requestID]; exists {
 		content.ToolCalls[toolCallID] = toolName
 	} else {
-		instance.requestContents[types.RequestID(toolCallID)] = &RequestContext{
+		instance.requestContents[requestID] = &RequestContext{
 			ToolCalls: make(map[types.ToolCallID]string, instance.config.DefaultToolCallSize),
 		}
 		instance.requestContents[requestID].ToolCalls[toolCallID] = toolName

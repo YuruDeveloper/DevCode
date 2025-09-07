@@ -7,9 +7,9 @@ import (
 	"DevCode/src/events"
 	"DevCode/src/types"
 	"context"
+	"github.com/ollama/ollama/api"
 	"sync"
 	"time"
-	"github.com/ollama/ollama/api"
 )
 
 func NewStreamManager(config config.OllamaServiceConfig) *StreamManager {
@@ -58,7 +58,7 @@ func (instance *StreamManager) StartStream(ollama *api.Client, bus *events.Event
 			bus.StreamErrorEvent.Publish(events.Event[dto.StreamErrorData]{
 				Data: dto.StreamErrorData{
 					RequestID: requestID,
-					Error:       err,
+					Error:     err,
 				},
 				TimeStamp: time.Now(),
 				Source:    constants.LLMService,
@@ -71,9 +71,9 @@ func (instance *StreamManager) Response(requestID types.RequestID, response api.
 	if response.Message.Content != "" {
 		bus.StreamChunkEvent.Publish(events.Event[dto.StreamChunkData]{
 			Data: dto.StreamChunkData{
-				RequestID: requestID,
-				Content:     response.Message.Content,
-				IsComplete:  response.Done,
+				RequestID:  requestID,
+				Content:    response.Message.Content,
+				IsComplete: response.Done,
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.LLMService,
@@ -83,7 +83,7 @@ func (instance *StreamManager) Response(requestID types.RequestID, response api.
 	if response.Done {
 		bus.StreamCompleteEvent.Publish(events.Event[dto.StreamCompleteData]{
 			Data: dto.StreamCompleteData{
-				RequestID:  requestID,
+				RequestID:    requestID,
 				FinalMessage: response.Message.Content,
 				IsComplete:   !CheckDone(requestID),
 			},
@@ -106,6 +106,6 @@ func (instance *StreamManager) CancelStream(requestID types.RequestID) {
 	if exists {
 		cancel()
 	}
-	delete(instance.activeStreams,requestID)
+	delete(instance.activeStreams, requestID)
 	delete(instance.ctxs, requestID)
 }

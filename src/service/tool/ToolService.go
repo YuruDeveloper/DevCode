@@ -7,17 +7,17 @@ import (
 	"DevCode/src/events"
 	"DevCode/src/types"
 	"fmt"
-	"strings"
-	"time"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.uber.org/zap"
+	"strings"
+	"time"
 )
 
 func NewToolService(bus *events.EventBus, config config.ToolServiceConfig, logger *zap.Logger) *ToolService {
 	service := &ToolService{
-		bus:     bus,
-		allowed: config.Allowed,
-		logger:  logger,
+		bus:            bus,
+		allowed:        config.Allowed,
+		logger:         logger,
 		toolCallBuffer: make(map[types.ToolCallID]dto.ToolCallData),
 	}
 	service.Subscribe()
@@ -62,7 +62,7 @@ func (instance *ToolService) ProcessUserDecision(data dto.UserDecisionData) {
 					Data: dto.ToolResultData{
 						RequestID:  data.RequestID,
 						ToolCallID: data.ToolCallID,
-						ToolResult:   builder.String(),
+						ToolResult: builder.String(),
 					},
 					TimeStamp: time.Now(),
 					Source:    constants.ToolService,
@@ -71,8 +71,8 @@ func (instance *ToolService) ProcessUserDecision(data dto.UserDecisionData) {
 				Data: dto.ToolUseReportData{
 					RequestID:  data.RequestID,
 					ToolCallID: data.ToolCallID,
-					ToolInfo:     "",
-					ToolStatus:   constants.Error,
+					ToolInfo:   "",
+					ToolStatus: constants.Error,
 				},
 				TimeStamp: time.Now(),
 				Source:    constants.ToolService,
@@ -102,7 +102,7 @@ func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 				Data: dto.ToolResultData{
 					RequestID:  data.RequestID,
 					ToolCallID: data.ToolCallID,
-					ToolResult:   builder.String(),
+					ToolResult: builder.String(),
 				},
 				TimeStamp: time.Now(),
 				Source:    constants.ToolService,
@@ -111,15 +111,14 @@ func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 			Data: dto.ToolUseReportData{
 				RequestID:  data.RequestID,
 				ToolCallID: data.ToolCallID,
-				ToolInfo:     "",
-				ToolStatus:   constants.Error,
+				ToolInfo:   "",
+				ToolStatus: constants.Error,
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.ToolService,
 		})
 		return
 	}
-
 
 	builder.WriteString("<result>\n")
 	for _, content := range data.Result.Content {
@@ -131,7 +130,7 @@ func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 			Data: dto.ToolResultData{
 				RequestID:  data.RequestID,
 				ToolCallID: data.ToolCallID,
-				ToolResult:   builder.String(),
+				ToolResult: builder.String(),
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.ToolService,
@@ -140,8 +139,8 @@ func (instance *ToolService) ProcessToolResult(data dto.ToolRawResultData) {
 		Data: dto.ToolUseReportData{
 			RequestID:  data.RequestID,
 			ToolCallID: data.ToolCallID,
-			ToolInfo:     "",
-			ToolStatus:   constants.Success,
+			ToolInfo:   "",
+			ToolStatus: constants.Success,
 		},
 		TimeStamp: time.Now(),
 		Source:    constants.ToolService,
@@ -154,8 +153,8 @@ func (instance *ToolService) ProcessToolCall(data dto.ToolCallData) {
 		Data: dto.ToolUseReportData{
 			RequestID:  data.RequestID,
 			ToolCallID: data.ToolCallID,
-			ToolInfo:     instance.ToolInfo(data.ToolName, data.Parameters),
-			ToolStatus:   constants.Call,
+			ToolInfo:   instance.ToolInfo(data.ToolName, data.Parameters),
+			ToolStatus: constants.Call,
 		},
 		TimeStamp: time.Now(),
 		Source:    constants.ToolService,
@@ -172,15 +171,13 @@ func (instance *ToolService) ProcessToolCall(data dto.ToolCallData) {
 		}
 	}
 
-
-
 	instance.toolCallBuffer[data.ToolCallID] = data
 	instance.bus.RequestToolUseEvent.Publish(events.Event[dto.ToolUseReportData]{
 		Data: dto.ToolUseReportData{
 			RequestID:  data.RequestID,
 			ToolCallID: data.ToolCallID,
-			ToolInfo:     instance.ToolInfo(data.ToolName, data.Parameters),
-			ToolStatus:   constants.Call,
+			ToolInfo:   instance.ToolInfo(data.ToolName, data.Parameters),
+			ToolStatus: constants.Call,
 		},
 	})
 }
@@ -188,13 +185,13 @@ func (instance *ToolService) ProcessToolCall(data dto.ToolCallData) {
 func (instance *ToolService) ToolInfo(name string, parameters map[string]any) string {
 	switch name {
 	case "Read":
-		if filePath , ok := parameters["file_path"].(string) ; ok {
-			return fmt.Sprintf("%s (%s)",name,filePath)
+		if filePath, ok := parameters["file_path"].(string); ok {
+			return fmt.Sprintf("%s (%s)", name, filePath)
 		}
 		return name
 	case "List":
-		if path , ok := parameters["path"].(string) ; ok {
-			return fmt.Sprintf("%s (%s)",name,path)
+		if path, ok := parameters["path"].(string); ok {
+			return fmt.Sprintf("%s (%s)", name, path)
 		}
 		return name
 	}

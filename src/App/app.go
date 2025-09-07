@@ -4,6 +4,7 @@ import (
 	devcodeerror "DevCode/src/DevCodeError"
 	"DevCode/src/config"
 	"DevCode/src/events"
+	toolManager "DevCode/src/manager/tool"
 	"DevCode/src/service/environment"
 	"DevCode/src/service/llm/ollama"
 	"DevCode/src/service/mcp"
@@ -29,9 +30,11 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	manager := toolManager.MewToolManager(bus, logger)
 	app := &App{
 		bus:                bus,
-		model:              viewinterface.NewMainModel(bus, config.ViewConfig, logger),
+		toolManager:        manager,
+		model:              viewinterface.NewMainModel(bus, config.ViewConfig, logger, manager),
 		mcpService:         mcp.NewMcpService(bus, config.McpServiceConfig, logger),
 		toolService:        tool.NewToolService(bus, config.ToolServiceConfig, logger),
 		messageService:     message.NewMessageService(bus, logger),
@@ -44,6 +47,7 @@ func NewApp() (*App, error) {
 
 type App struct {
 	bus                *events.EventBus
+	toolManager        *toolManager.ToolManager
 	model              *viewinterface.MainModel
 	mcpService         *mcp.McpService
 	environmentService *environment.EnvironmentService

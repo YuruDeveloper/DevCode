@@ -24,9 +24,9 @@ func (instance *MessageService) Subscribe() {
 	instance.bus.StreamStartEvent.Subscribe(constants.MessageService, func(event events.Event[dto.StreamStartData]) {
 		instance.bus.StreamChunkParsedEvent.Publish(events.Event[dto.ParsedChunkData]{
 			Data: dto.ParsedChunkData{
-				RequestID: event.Data.RequestID,
-				Content:     "",
-				IsComplete:  false,
+				RequestID:  event.Data.RequestID,
+				Content:    "",
+				IsComplete: false,
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.MessageService,
@@ -42,7 +42,7 @@ func (instance *MessageService) Subscribe() {
 		instance.bus.StreamChunkParsedErrorEvent.Publish(events.Event[dto.ParsedChunkErrorData]{
 			Data: dto.ParsedChunkErrorData{
 				RequestID: event.Data.RequestID,
-				Error:       event.Data.Error.Error(),
+				Error:     event.Data.Error.Error(),
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.MessageService,
@@ -51,9 +51,9 @@ func (instance *MessageService) Subscribe() {
 	instance.bus.StreamCompleteEvent.Subscribe(constants.MessageService, func(event events.Event[dto.StreamCompleteData]) {
 		instance.bus.StreamChunkParsedEvent.Publish(events.Event[dto.ParsedChunkData]{
 			Data: dto.ParsedChunkData{
-				RequestID: event.Data.RequestID,
-				Content:     event.Data.FinalMessage,
-				IsComplete:  event.Data.IsComplete,
+				RequestID:  event.Data.RequestID,
+				Content:    event.Data.FinalMessage,
+				IsComplete: event.Data.IsComplete,
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.MessageService,
@@ -64,9 +64,9 @@ func (instance *MessageService) Subscribe() {
 func (instance *MessageService) ParsingMessage(data dto.StreamChunkData) {
 	instance.bus.StreamChunkParsedEvent.Publish(events.Event[dto.ParsedChunkData]{
 		Data: dto.ParsedChunkData{
-			RequestID: data.RequestID,
-			Content:     data.Content,
-			IsComplete:  false,
+			RequestID:  data.RequestID,
+			Content:    data.Content,
+			IsComplete: false,
 		},
 		TimeStamp: time.Now(),
 		Source:    constants.MessageService,

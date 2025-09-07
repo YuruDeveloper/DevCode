@@ -12,6 +12,7 @@ const (
 	EnvironmentService
 	ToolService
 	Model
+	ToolManager
 )
 
 func (instance Source) String() string {
@@ -41,4 +42,12 @@ const (
 	Call = ToolStatus(iota + 1)
 	Success
 	Error
+)
+
+type UserStatus int
+
+const (
+	UserInput = UserStatus(iota + 1)
+	AssistantInput
+	ToolDecision
 )

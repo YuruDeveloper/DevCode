@@ -14,8 +14,10 @@ func NewEventBus(config config.EventBusConfig, logger *zap.Logger) (*EventBus, e
 		return nil, devcodeerror.Wrap(err, devcodeerror.FailCreateEventBus, "Fail Create Ant Pool")
 	}
 	return &EventBus{
-		UserInputEvent:    NewTypedBus[dto.UserRequestData](pool, logger),
-		UserDecisionEvent: NewTypedBus[dto.UserDecisionData](pool, logger),
+		UserInputEvent:        NewTypedBus[dto.UserRequestData](pool, logger),
+		UserDecisionEvent:     NewTypedBus[dto.UserDecisionData](pool, logger),
+		UpdaetUserStatusEvent: NewTypedBus[dto.UpdateUserStatusData](pool, logger),
+		UpdateViewEvent:       NewTypedBus[dto.UpdateViewData](pool, logger),
 
 		RequestToolUseEvent: NewTypedBus[dto.ToolUseReportData](pool, logger),
 		ToolCallEvent:       NewTypedBus[dto.ToolCallData](pool, logger),
@@ -43,8 +45,10 @@ func NewEventBus(config config.EventBusConfig, logger *zap.Logger) (*EventBus, e
 }
 
 type EventBus struct {
-	UserInputEvent    *TypedBus[dto.UserRequestData]
-	UserDecisionEvent *TypedBus[dto.UserDecisionData]
+	UserInputEvent        *TypedBus[dto.UserRequestData]
+	UserDecisionEvent     *TypedBus[dto.UserDecisionData]
+	UpdaetUserStatusEvent *TypedBus[dto.UpdateUserStatusData]
+	UpdateViewEvent       *TypedBus[dto.UpdateViewData]
 
 	RequestToolUseEvent *TypedBus[dto.ToolUseReportData]
 	ToolCallEvent       *TypedBus[dto.ToolCallData]
@@ -72,30 +76,5 @@ type EventBus struct {
 }
 
 func (instance *EventBus) Close() {
-	instance.UserInputEvent.Close()
-	instance.UserDecisionEvent.Close()
-
-	instance.RequestEnvironmentEvent.Close()
-	instance.UpdateEnvironmentEvent.Close()
-
-	instance.RequestToolListEvent.Close()
-	instance.UpdateToolListEvent.Close()
-
-	instance.RequestToolUseEvent.Close()
-	instance.ToolUseReportEvent.Close()
-	instance.ToolCallEvent.Close()
-	instance.AcceptToolEvent.Close()
-	instance.ToolResultEvent.Close()
-	instance.ToolRawResultEvent.Close()
-
-	instance.StreamStartEvent.Close()
-	instance.StreamChunkEvent.Close()
-	instance.StreamCancelEvent.Close()
-	instance.StreamCompleteEvent.Close()
-	instance.StreamErrorEvent.Close()
-
-	instance.StreamChunkParsedEvent.Close()
-	instance.StreamChunkParsedErrorEvent.Close()
-
 	instance.pool.Release()
 }

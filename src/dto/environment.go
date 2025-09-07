@@ -5,7 +5,7 @@ import (
 )
 
 type EnvironmentUpdateData struct {
-	CreateID         types.CreateID
+	CreateID           types.CreateID
 	Cwd                string
 	OS                 string
 	OSVersion          string

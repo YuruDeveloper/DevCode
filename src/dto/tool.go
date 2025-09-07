@@ -18,25 +18,25 @@ type ToolListUpdateData struct {
 type ToolCallData struct {
 	RequestID  types.RequestID
 	ToolCallID types.ToolCallID
-	ToolName     string
-	Parameters   map[string]any
+	ToolName   string
+	Parameters map[string]any
 }
 
 type ToolResultData struct {
 	RequestID  types.RequestID
 	ToolCallID types.ToolCallID
-	ToolResult   string
+	ToolResult string
 }
 
 type ToolRawResultData struct {
 	RequestID  types.RequestID
 	ToolCallID types.ToolCallID
-	Result       *mcp.CallToolResult
+	Result     *mcp.CallToolResult
 }
 
 type ToolUseReportData struct {
 	RequestID  types.RequestID
 	ToolCallID types.ToolCallID
-	ToolInfo     string
-	ToolStatus   constants.ToolStatus
+	ToolInfo   string
+	ToolStatus constants.ToolStatus
 }

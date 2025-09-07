@@ -72,6 +72,7 @@ func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
 		instance.logger.Warn("Tool call not found",
 			zap.String("requestUUID", data.RequestID.String()),
 			zap.String("toolCallUUID", data.ToolCallID.String()))
+		return
 	}
 }
 
@@ -128,8 +129,8 @@ func (instance *OllamaService) ProcessToolCalls(requestID types.RequestID, ToolC
 			Data: dto.ToolCallData{
 				RequestID:  requestID,
 				ToolCallID: toolCallID,
-				ToolName:     call.Function.Name,
-				Parameters:   call.Function.Arguments,
+				ToolName:   call.Function.Name,
+				Parameters: call.Function.Arguments,
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.LLMService,

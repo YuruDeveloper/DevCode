@@ -9,21 +9,21 @@ type StreamStartData struct {
 }
 
 type StreamChunkData struct {
-	RequestID types.RequestID
-	Content     string
-	IsComplete  bool
+	RequestID  types.RequestID
+	Content    string
+	IsComplete bool
 }
 
 type StreamCompleteData struct {
-	RequestID  types.RequestID
+	RequestID    types.RequestID
 	FinalMessage string
 	IsComplete   bool
 }
 
 type StreamErrorData struct {
-	RequestID types.RequestID
-	Error       error
-	ChunkCount  int
+	RequestID  types.RequestID
+	Error      error
+	ChunkCount int
 }
 
 type StreamCancelData struct {

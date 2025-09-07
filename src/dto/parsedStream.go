@@ -5,12 +5,12 @@ import (
 )
 
 type ParsedChunkData struct {
-	RequestID types.RequestID
-	Content     string
-	IsComplete  bool
+	RequestID  types.RequestID
+	Content    string
+	IsComplete bool
 }
 
 type ParsedChunkErrorData struct {
 	RequestID types.RequestID
-	Error       string
+	Error     string
 }

@@ -123,12 +123,11 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 		return
 	}
 
-
 	instance.bus.ToolRawResultEvent.Publish(events.Event[dto.ToolRawResultData]{
 		Data: dto.ToolRawResultData{
 			RequestID:  data.RequestID,
 			ToolCallID: data.ToolCallID,
-			Result:       result,
+			Result:     result,
 		},
 		TimeStamp: time.Now(),
 		Source:    constants.McpService,
@@ -141,8 +140,6 @@ func (instance *McpService) PublishToolList() {
 	for tool := range instance.clientSession.Tools(instance.ctx, nil) {
 		mcpToolList = append(mcpToolList, tool)
 	}
-
-
 
 	instance.bus.UpdateToolListEvent.Publish(events.Event[dto.ToolListUpdateData]{
 		Data: dto.ToolListUpdateData{

@@ -58,12 +58,12 @@ func (instance *OllamaServiceConfig) Default() {
 	if instance.urlText == "" {
 		instance.urlText = BackupUrl
 	}
-	if pased, err := url.Parse(instance.urlText); err != nil {
-		pased, _ = url.Parse(BackupUrl)
-		instance.Url = pased
-	} else {
-		instance.Url = pased
+	var parsed *url.URL
+	var err error
+	if parsed, err = url.Parse(instance.urlText); err != nil {
+		parsed, _ = url.Parse(BackupUrl)
 	}
+	instance.Url = parsed
 	if instance.Model == "" {
 		instance.Model = BackupModel
 	}

@@ -1,0 +1,134 @@
+package tool
+
+import (
+	"DevCode/src/constants"
+	"DevCode/src/dto"
+	"DevCode/src/events"
+	"DevCode/src/types"
+	"time"
+
+	"go.uber.org/zap"
+)
+
+func MewToolManager(bus *events.EventBus, logger *zap.Logger) *ToolManager {
+	return &ToolManager{
+		bus:               bus,
+		logger:            logger,
+		activeTools:       make(map[types.ToolCallID]*types.ActiveTool),
+		pendingToolStack:  make([]*types.PendingTool, 0, 5),
+		changedActiveTool: make([]*types.ActiveTool, 0, 10),
+	}
+}
+
+type ToolManager struct {
+	bus               *events.EventBus
+	logger            *zap.Logger
+	activeTools       map[types.ToolCallID]*types.ActiveTool
+	pendingToolStack  []*types.PendingTool
+	changedActiveTool []*types.ActiveTool
+}
+
+func (instance *ToolManager) Subscribe() {
+	instance.bus.ToolUseReportEvent.Subscribe(constants.ToolManager, instance.ProsessReportEvent)
+	instance.bus.RequestToolUseEvent.Subscribe(constants.ToolManager, instance.ProsessRequestEvent)
+}
+
+func (instance *ToolManager) ProsessRequestEvent(event events.Event[dto.ToolUseReportData]) {
+	instance.pendingToolStack = append(instance.pendingToolStack, &types.PendingTool{RequestID: event.Data.RequestID, ToolCallID: event.Data.ToolCallID})
+	if len(instance.pendingToolStack) == 1 {
+		instance.bus.UpdaetUserStatusEvent.Publish(events.Event[dto.UpdateUserStatusData]{
+			Data: dto.UpdateUserStatusData{
+				Status: constants.ToolDecision,
+			},
+			TimeStamp: time.Now(),
+			Source:    constants.ToolManager,
+		})
+	}
+	instance.ProsessReportEvent(event)
+}
+
+func (instance *ToolManager) ProsessReportEvent(event events.Event[dto.ToolUseReportData]) {
+	if activeTool, exists := instance.activeTools[event.Data.ToolCallID]; exists {
+		if activeTool.ToolStatus != event.Data.ToolStatus || activeTool.ToolInfo != event.Data.ToolInfo {
+			delete(instance.activeTools, event.Data.ToolCallID)
+			instance.changedActiveTool = append(instance.changedActiveTool, &types.ActiveTool{
+				ToolCallID: event.Data.ToolCallID,
+				ToolStatus: event.Data.ToolStatus,
+				ToolInfo:   event.Data.ToolInfo,
+			})
+			instance.PublishUpdateView()
+		}
+		return
+	}
+	activeTool := &types.ActiveTool{
+		ToolStatus: event.Data.ToolStatus,
+		ToolInfo:   event.Data.ToolInfo,
+	}
+	instance.activeTools[event.Data.ToolCallID] = activeTool
+	instance.changedActiveTool = append(instance.changedActiveTool, activeTool)
+	instance.PublishUpdateView()
+}
+
+func (instance *ToolManager) PublishUpdateView() {
+	instance.bus.UpdateViewEvent.Publish(events.Event[dto.UpdateViewData]{
+		Data:      dto.UpdateViewData{},
+		TimeStamp: time.Now(),
+		Source:    constants.ToolManager,
+	})
+}
+
+func (instance *ToolManager) IsPedding() bool {
+	return len(instance.pendingToolStack) != 0
+}
+
+func (instance *ToolManager) ChangedActiveTool() []*types.ActiveTool {
+	defer func() {
+		instance.changedActiveTool = make([]*types.ActiveTool, 0)
+	}()
+	return instance.changedActiveTool
+}
+
+func (instance *ToolManager) Select(selectIndex int) {
+	accept := selectIndex == 0
+	instance.bus.UserDecisionEvent.Publish(
+		events.Event[dto.UserDecisionData]{
+			Data: dto.UserDecisionData{
+				RequestID:  instance.pendingToolStack[0].RequestID,
+				ToolCallID: instance.pendingToolStack[0].ToolCallID,
+				Accept:     accept,
+			},
+			TimeStamp: time.Now(),
+			Source:    constants.ToolManager,
+		},
+	)
+	instance.pendingToolStack = instance.pendingToolStack[1:]
+	instance.checkPeddingToolStack()
+}
+
+func (instance *ToolManager) Quit() {
+	instance.bus.UserDecisionEvent.Publish(
+		events.Event[dto.UserDecisionData]{
+			Data: dto.UserDecisionData{
+				RequestID:  instance.pendingToolStack[0].RequestID,
+				ToolCallID: instance.pendingToolStack[0].ToolCallID,
+				Accept:     false,
+			},
+			TimeStamp: time.Now(),
+			Source:    constants.ToolManager,
+		},
+	)
+	instance.pendingToolStack = instance.pendingToolStack[1:]
+	instance.checkPeddingToolStack()
+}
+
+func (instance *ToolManager) checkPeddingToolStack() {
+	if len(instance.pendingToolStack) == 0 {
+		instance.bus.UpdaetUserStatusEvent.Publish(events.Event[dto.UpdateUserStatusData]{
+			Data: dto.UpdateUserStatusData{
+				Status: constants.AssistantInput,
+			},
+			TimeStamp: time.Now(),
+			Source:    constants.ToolManager,
+		})
+	}
+}

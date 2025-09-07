@@ -52,9 +52,3 @@ func (instance *TypedBus[T]) Publish(event Event[T]) {
 		)
 	}
 }
-
-func (instance *TypedBus[T]) Close() {
-	instance.handlerMutex.Lock()
-	defer instance.handlerMutex.Unlock()
-	clear(instance.handlers)
-}
