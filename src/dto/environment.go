@@ -1,9 +1,11 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"DevCode/src/types"
+)
 
 type EnvironmentUpdateData struct {
-	CreateUUID         uuid.UUID
+	CreateID         types.CreateID
 	Cwd                string
 	OS                 string
 	OSVersion          string
@@ -12,5 +14,5 @@ type EnvironmentUpdateData struct {
 }
 
 type EnvironmentRequestData struct {
-	CreateUUID uuid.UUID
+	CreateID types.CreateID
 }

@@ -1,15 +1,17 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"DevCode/src/types"
+)
 
 type UserRequestData struct {
-	SessionUUID uuid.UUID
-	RequestUUID uuid.UUID
+	SessionID types.SessionID
+	RequestID types.RequestID
 	Message     string
 }
 
 type UserDecisionData struct {
-	RequestUUID  uuid.UUID
-	ToolCallUUID uuid.UUID
+	RequestID  types.RequestID
+	ToolCallID types.ToolCallID
 	Accept       bool
 }

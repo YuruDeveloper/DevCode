@@ -5,12 +5,13 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
+	"DevCode/src/types"
 	"DevCode/src/utils"
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ollama/ollama/api"
+	"go.uber.org/zap"
 )
 
 type OllamaService struct {
@@ -20,9 +21,10 @@ type OllamaService struct {
 	messageManager IMessageManager
 	toolManager    IToolManager
 	StreamManager  IStreamManager
+	logger         *zap.Logger
 }
 
-func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) *OllamaService {
+func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig, logger *zap.Logger) *OllamaService {
 	ollamaClient := api.NewClient(config.Url, http.DefaultClient)
 	service := &OllamaService{
 		client:         ollamaClient,
@@ -31,6 +33,7 @@ func NewOllamaService(bus *events.EventBus, config config.OllamaServiceConfig) *
 		messageManager: NewMessageManager(config),
 		toolManager:    NewToolManager(config),
 		StreamManager:  NewStreamManager(config),
+		logger:         logger,
 	}
 	service.messageManager.AddSystemMessage(config.Prompt)
 	service.Subscribe()
@@ -41,7 +44,7 @@ func (instance *OllamaService) Subscribe() {
 	instance.bus.UserInputEvent.Subscribe(constants.LLMService, func(event events.Event[dto.UserRequestData]) {
 		instance.messageManager.AddUserMessage(event.Data.Message)
 		instance.UpdateEnvironmentToolList()
-		instance.CallApi(event.Data.RequestUUID)
+		instance.CallApi(event.Data.RequestID)
 	})
 	instance.bus.UpdateEnvironmentEvent.Subscribe(constants.LLMService, func(event events.Event[dto.EnvironmentUpdateData]) {
 		instance.messageManager.SetEnvironmentMessage(utils.EnvironmentUpdateDataToString(event.Data))
@@ -50,7 +53,7 @@ func (instance *OllamaService) Subscribe() {
 		instance.toolManager.RegisterToolList(event.Data.List)
 	})
 	instance.bus.StreamCancelEvent.Subscribe(constants.LLMService, func(event events.Event[dto.StreamCancelData]) {
-		instance.CancelStream(event.Data.RequestUUID)
+		instance.CancelStream(event.Data.RequestID)
 	})
 	instance.bus.ToolResultEvent.Subscribe(constants.LLMService, func(event events.Event[dto.ToolResultData]) {
 		instance.ProcessToolResult(event.Data)
@@ -58,13 +61,17 @@ func (instance *OllamaService) Subscribe() {
 }
 
 func (instance *OllamaService) ProcessToolResult(data dto.ToolResultData) {
-	if instance.toolManager.HasToolCall(data.RequestUUID, data.ToolCallUUID) {
+	if instance.toolManager.HasToolCall(data.RequestID, data.ToolCallID) {
 		instance.messageManager.AddToolMessage(data.ToolResult)
-		instance.toolManager.CompleteToolCall(data.RequestUUID, data.ToolCallUUID)
-		if !instance.toolManager.HasPendingCalls(data.RequestUUID) {
-			instance.toolManager.ClearRequest(data.RequestUUID)
-			instance.CallApi(data.RequestUUID)
+		instance.toolManager.CompleteToolCall(data.RequestID, data.ToolCallID)
+		if !instance.toolManager.HasPendingCalls(data.RequestID) {
+			instance.toolManager.ClearRequest(data.RequestID)
+			instance.CallApi(data.RequestID)
 		}
+	} else {
+		instance.logger.Warn("Tool call not found",
+			zap.String("requestUUID", data.RequestID.String()),
+			zap.String("toolCallUUID", data.ToolCallID.String()))
 	}
 }
 
@@ -72,14 +79,14 @@ func (instance *OllamaService) UpdateEnvironmentToolList() {
 	instance.bus.RequestEnvironmentEvent.Publish(
 		events.Event[dto.EnvironmentRequestData]{
 			Data: dto.EnvironmentRequestData{
-				CreateUUID: uuid.New(),
+				CreateID: types.NewCreateID(),
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.LLMService,
 		})
 	instance.bus.RequestToolListEvent.Publish(events.Event[dto.RequestToolListData]{
 		Data: dto.RequestToolListData{
-			CreateUUID: uuid.New(),
+			CreateID: types.NewCreateID(),
 		},
 		TimeStamp: time.Now(),
 		Source:    constants.LLMService,
@@ -90,22 +97,22 @@ func (instance *OllamaService) AddAssistantMessage(message string) {
 	instance.messageManager.AddAssistantMessage(message)
 }
 
-func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
+func (instance *OllamaService) CallApi(requestID types.RequestID) {
 	instance.bus.StreamStartEvent.Publish(events.Event[dto.StreamStartData]{
 		Data: dto.StreamStartData{
-			RequestUUID: requestUUID,
+			RequestID: requestID,
 		},
 		TimeStamp: time.Now(),
 		Source:    constants.LLMService,
 	})
 	instance.StreamManager.StartStream(instance.client,
-		instance.bus, requestUUID,
+		instance.bus, requestID,
 		instance.config.Model,
 		instance.toolManager.GetToolList(),
 		instance.messageManager.GetMessages(),
-		func(requestUUID uuid.UUID, response api.ChatResponse) error {
+		func(requestID types.RequestID, response api.ChatResponse) error {
 			return instance.StreamManager.Response(
-				requestUUID,
+				requestID,
 				response, instance.bus,
 				instance.AddAssistantMessage,
 				instance.toolManager.HasPendingCalls,
@@ -114,24 +121,24 @@ func (instance *OllamaService) CallApi(requestUUID uuid.UUID) {
 		})
 }
 
-func (instance *OllamaService) ProcessToolCalls(requestUUID uuid.UUID, ToolCalls []api.ToolCall) {
+func (instance *OllamaService) ProcessToolCalls(requestID types.RequestID, ToolCalls []api.ToolCall) {
 	for _, call := range ToolCalls {
-		toolCallUUID := uuid.New()
+		toolCallID := types.NewTooCallID()
 		instance.bus.ToolCallEvent.Publish(events.Event[dto.ToolCallData]{
 			Data: dto.ToolCallData{
-				RequestUUID:  requestUUID,
-				ToolCallUUID: toolCallUUID,
+				RequestID:  requestID,
+				ToolCallID: toolCallID,
 				ToolName:     call.Function.Name,
 				Parameters:   call.Function.Arguments,
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.LLMService,
 		})
-		instance.toolManager.RegisterToolCall(requestUUID, toolCallUUID, call.Function.Name)
+		instance.toolManager.RegisterToolCall(requestID, toolCallID, call.Function.Name)
 	}
 }
 
-func (instance *OllamaService) CancelStream(requestUUID uuid.UUID) {
-	instance.StreamManager.CancelStream(requestUUID)
-	instance.toolManager.ClearRequest(requestUUID)
+func (instance *OllamaService) CancelStream(requestID types.RequestID) {
+	instance.StreamManager.CancelStream(requestID)
+	instance.toolManager.ClearRequest(requestID)
 }

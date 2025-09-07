@@ -1,29 +1,31 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"DevCode/src/types"
+)
 
 type StreamStartData struct {
-	RequestUUID uuid.UUID
+	RequestID types.RequestID
 }
 
 type StreamChunkData struct {
-	RequestUUID uuid.UUID
+	RequestID types.RequestID
 	Content     string
 	IsComplete  bool
 }
 
 type StreamCompleteData struct {
-	RequestUUID  uuid.UUID
+	RequestID  types.RequestID
 	FinalMessage string
 	IsComplete   bool
 }
 
 type StreamErrorData struct {
-	RequestUUID uuid.UUID
+	RequestID types.RequestID
 	Error       error
 	ChunkCount  int
 }
 
 type StreamCancelData struct {
-	RequestUUID uuid.UUID
+	RequestID types.RequestID
 }

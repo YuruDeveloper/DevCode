@@ -31,12 +31,12 @@ func NewApp() (*App, error) {
 	}
 	app := &App{
 		bus:                bus,
-		model:              viewinterface.NewMainModel(bus, config.ViewConfig),
-		mcpService:         mcp.NewMcpService(bus, config.McpServiceConfig),
-		toolService:        tool.NewToolService(bus, config.ToolServiceConfig),
-		messageService:     message.NewMessageService(bus),
+		model:              viewinterface.NewMainModel(bus, config.ViewConfig, logger),
+		mcpService:         mcp.NewMcpService(bus, config.McpServiceConfig, logger),
+		toolService:        tool.NewToolService(bus, config.ToolServiceConfig, logger),
+		messageService:     message.NewMessageService(bus, logger),
 		environmentService: environment.NewEnvironmentService(bus, logger),
-		ollamaService:      ollama.NewOllamaService(bus, config.OllamaServiceConfig),
+		ollamaService:      ollama.NewOllamaService(bus, config.OllamaServiceConfig, logger),
 		logger:             logger,
 	}
 	return app, nil

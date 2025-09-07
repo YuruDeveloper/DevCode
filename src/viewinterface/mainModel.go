@@ -5,6 +5,7 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
+	"DevCode/src/types"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -13,7 +14,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type Status int
@@ -30,11 +31,11 @@ type StreamUpdate struct {
 }
 
 type PendingTool struct {
-	RequestUUID  uuid.UUID
-	ToolCallUUID uuid.UUID
+	RequestID  types.RequestID
+	ToolCallID types.ToolCallID
 }
 
-func NewMainModel(bus *events.EventBus, config config.ViewConfig) *MainModel {
+func NewMainModel(bus *events.EventBus, config config.ViewConfig, logger *zap.Logger) *MainModel {
 	text := textarea.New()
 	text.Focus()
 
@@ -59,14 +60,15 @@ func NewMainModel(bus *events.EventBus, config config.ViewConfig) *MainModel {
 	model := &MainModel{
 		InputPort:        text,
 		Bus:              bus,
-		SessionUUID:      uuid.New(),
+		SessionID:     types.NewSessionID(),
 		Status:           UserInput,
 		MessagePort:      view,
 		Keys:             NewDefaultMainKeyMap(),
-		ActiveTools:      make(map[uuid.UUID]*ToolModel),
+		ActiveTools:      make(map[types.ToolCallID]*ToolModel),
 		PendingToolStack: make([]*PendingTool, 0, 5),
 		SelectModel:      selectModel,
-		Config:           config, // Add this line
+		Config:           config,
+		logger:           logger,
 	}
 	model.SelectModel.SelectCallBack = model.Select
 	model.SelectModel.QuitCallBack = model.Quit
@@ -79,15 +81,16 @@ type MainModel struct {
 	InputPort        textarea.Model
 	MessagePort      viewport.Model
 	Status           Status
-	SessionUUID      uuid.UUID
-	MessageUUID      uuid.UUID
+	SessionID      types.SessionID
+	MessageID      types.RequestID
 	Program          *tea.Program
 	AssistantMessage string
 	Keys             MainKeyMap
-	ActiveTools      map[uuid.UUID]*ToolModel
+	ActiveTools      map[types.ToolCallID]*ToolModel
 	PendingToolStack []*PendingTool
 	SelectModel      *SelectModel
 	Config           config.ViewConfig
+	logger           *zap.Logger
 }
 
 func (instance *MainModel) SetProgram(program *tea.Program) {
@@ -96,7 +99,7 @@ func (instance *MainModel) SetProgram(program *tea.Program) {
 
 func (instance *MainModel) Subscribe() {
 	instance.Bus.StreamChunkParsedEvent.Subscribe(constants.Model, func(event events.Event[dto.ParsedChunkData]) {
-		if event.Data.RequestUUID == instance.MessageUUID && instance.Program != nil {
+		if event.Data.RequestID == instance.MessageID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
 				Content:    event.Data.Content,
 				IsComplete: event.Data.IsComplete,
@@ -104,7 +107,7 @@ func (instance *MainModel) Subscribe() {
 		}
 	})
 	instance.Bus.StreamChunkParsedErrorEvent.Subscribe(constants.Model, func(event events.Event[dto.ParsedChunkErrorData]) {
-		if event.Data.RequestUUID == instance.MessageUUID && instance.Program != nil {
+		if event.Data.RequestID == instance.MessageID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
 				Content:    event.Data.Error,
 				IsComplete: true,
@@ -117,8 +120,8 @@ func (instance *MainModel) Subscribe() {
 	instance.Bus.RequestToolUseEvent.Subscribe(constants.Model, func(event events.Event[dto.ToolUseReportData]) {
 		instance.Program.Send(event.Data)
 		instance.Program.Send(PendingTool{
-			RequestUUID:  event.Data.RequestUUID,
-			ToolCallUUID: event.Data.ToolCallUUID,
+			RequestID:  event.Data.RequestID,
+			ToolCallID: event.Data.ToolCallID,
 		})
 	})
 }
@@ -139,13 +142,14 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return instance, tea.Quit
 		case key.Matches(msg, instance.Keys.Choice) && instance.Status != ToolDecision:
 			if instance.Status == UserInput {
-				instance.MessageUUID = uuid.New()
+				instance.MessageID = types.NewRequestID()
+				userMessage := instance.InputPort.Value()
 				instance.Bus.UserInputEvent.Publish(
 					events.Event[dto.UserRequestData]{
 						Data: dto.UserRequestData{
-							SessionUUID: instance.SessionUUID,
-							RequestUUID: instance.MessageUUID,
-							Message:     instance.InputPort.Value(),
+							SessionID: instance.SessionID,
+							RequestID: instance.MessageID,
+							Message:     userMessage,
 						},
 						TimeStamp: time.Now(),
 						Source:    constants.Model,
@@ -159,7 +163,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, instance.Keys.Cancel) && instance.Status != ToolDecision:
 			instance.Bus.StreamCancelEvent.Publish(events.Event[dto.StreamCancelData]{
 				Data: dto.StreamCancelData{
-					RequestUUID: instance.MessageUUID,
+					RequestID: instance.MessageID,
 				},
 				TimeStamp: time.Now(),
 				Source:    constants.Model,
@@ -177,14 +181,14 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case dto.ToolUseReportData:
 		if msg.ToolStatus != constants.Call {
-			model := instance.ActiveTools[msg.ToolCallUUID]
+			model := instance.ActiveTools[msg.ToolCallID]
 			if model != nil {
 				updatedModel, _ := model.Update(UpdateStatus{NewStauts: msg.ToolStatus})
 				instance.AssistantMessage += updatedModel.View() + "\n"
-				delete(instance.ActiveTools, msg.ToolCallUUID)
+				delete(instance.ActiveTools, msg.ToolCallID)
 			}
 		} else {
-			instance.ActiveTools[msg.ToolCallUUID] = NewToolModel(msg.ToolInfo, instance.Config)
+			instance.ActiveTools[msg.ToolCallID] = NewToolModel(msg.ToolInfo, instance.Config)
 		}
 	case PendingTool:
 		instance.PendingToolStack = append(instance.PendingToolStack, &msg)
@@ -241,8 +245,8 @@ func (instance *MainModel) Select(selectIndex int) {
 	instance.Bus.UserDecisionEvent.Publish(
 		events.Event[dto.UserDecisionData]{
 			Data: dto.UserDecisionData{
-				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
-				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
+				RequestID:  instance.PendingToolStack[0].RequestID,
+				ToolCallID: instance.PendingToolStack[0].ToolCallID,
 				Accept:       accept,
 			},
 			TimeStamp: time.Now(),
@@ -259,8 +263,8 @@ func (instance *MainModel) Quit() {
 	instance.Bus.UserDecisionEvent.Publish(
 		events.Event[dto.UserDecisionData]{
 			Data: dto.UserDecisionData{
-				RequestUUID:  instance.PendingToolStack[0].RequestUUID,
-				ToolCallUUID: instance.PendingToolStack[0].ToolCallUUID,
+				RequestID:  instance.PendingToolStack[0].RequestID,
+				ToolCallID: instance.PendingToolStack[0].ToolCallID,
 				Accept:       false,
 			},
 			TimeStamp: time.Now(),

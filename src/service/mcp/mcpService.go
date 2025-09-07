@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	devcodeerror "DevCode/src/DevCodeError"
 	"DevCode/src/config"
 	"DevCode/src/constants"
 	"DevCode/src/dto"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.uber.org/zap"
 )
 
 type McpService struct {
@@ -21,9 +23,10 @@ type McpService struct {
 	toolServer    *mcp.Server
 	bus           *events.EventBus
 	ctx           context.Context
+	logger        *zap.Logger
 }
 
-func NewMcpService(bus *events.EventBus, config config.McpServiceConfig) *McpService {
+func NewMcpService(bus *events.EventBus, config config.McpServiceConfig, logger *zap.Logger) *McpService {
 
 	mcpClient := mcp.NewClient(&mcp.Implementation{Name: config.Name, Version: config.Version}, nil)
 
@@ -38,6 +41,7 @@ func NewMcpService(bus *events.EventBus, config config.McpServiceConfig) *McpSer
 		bus:        bus,
 		toolServer: mcpServer,
 		ctx:        context.Background(),
+		logger:     logger,
 	}
 
 	serverTran, clientTrans := mcp.NewInMemoryTransports()
@@ -46,6 +50,11 @@ func NewMcpService(bus *events.EventBus, config config.McpServiceConfig) *McpSer
 
 	go func() {
 		if err := service.toolServer.Run(service.ctx, serverTran); err != nil {
+			service.logger.Error("", zap.Error(devcodeerror.Wrap(
+				err,
+				devcodeerror.FailRunMcpServer,
+				"Fail Run MCP Server",
+			)))
 		}
 	}()
 
@@ -76,6 +85,7 @@ func InsertTool[T any](server *McpService, tool types.Tool[T]) {
 		Description: tool.Description(),
 	}
 	mcp.AddTool(server.toolServer, mcpTool, tool.Handler())
+
 }
 
 func (instance *McpService) ToolCall(data dto.ToolCallData) {
@@ -88,10 +98,16 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 	result, err := instance.clientSession.CallTool(instance.ctx, params)
 
 	if err != nil {
+		instance.logger.Error("도구 호출 실패",
+			zap.String("toolName", data.ToolName),
+			zap.String("requestUUID", data.RequestID.String()),
+			zap.String("toolCallUUID", data.ToolCallID.String()),
+			zap.Error(err))
+
 		instance.bus.ToolRawResultEvent.Publish(events.Event[dto.ToolRawResultData]{
 			Data: dto.ToolRawResultData{
-				RequestUUID:  data.RequestUUID,
-				ToolCallUUID: data.ToolCallUUID,
+				RequestID:  data.RequestID,
+				ToolCallID: data.ToolCallID,
 				Result: &mcp.CallToolResult{
 					IsError: true,
 					Content: []mcp.Content{
@@ -106,10 +122,12 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 		})
 		return
 	}
+
+
 	instance.bus.ToolRawResultEvent.Publish(events.Event[dto.ToolRawResultData]{
 		Data: dto.ToolRawResultData{
-			RequestUUID:  data.RequestUUID,
-			ToolCallUUID: data.ToolCallUUID,
+			RequestID:  data.RequestID,
+			ToolCallID: data.ToolCallID,
 			Result:       result,
 		},
 		TimeStamp: time.Now(),
@@ -118,10 +136,14 @@ func (instance *McpService) ToolCall(data dto.ToolCallData) {
 }
 
 func (instance *McpService) PublishToolList() {
+
 	mcpToolList := make([]*mcp.Tool, 0, 10)
 	for tool := range instance.clientSession.Tools(instance.ctx, nil) {
 		mcpToolList = append(mcpToolList, tool)
 	}
+
+
+
 	instance.bus.UpdateToolListEvent.Publish(events.Event[dto.ToolListUpdateData]{
 		Data: dto.ToolListUpdateData{
 			List: mcpToolList,
@@ -129,8 +151,4 @@ func (instance *McpService) PublishToolList() {
 		TimeStamp: time.Now(),
 		Source:    constants.McpService,
 	})
-}
-
-func (instance *McpService) GetID() constants.Source {
-	return constants.McpService
 }

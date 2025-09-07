@@ -16,3 +16,11 @@ const (
 const (
 	FailReadEnvironment = ErrorCode(300 + iota)
 )
+
+const (
+	FailOllaConnect = ErrorCode(400 + iota)
+)
+
+const (
+	FailRunMcpServer = ErrorCode(500 + iota)
+)

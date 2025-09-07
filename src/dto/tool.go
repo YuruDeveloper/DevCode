@@ -2,13 +2,13 @@ package dto
 
 import (
 	"DevCode/src/constants"
+	"DevCode/src/types"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type RequestToolListData struct {
-	CreateUUID uuid.UUID
+	CreateID types.CreateID
 }
 
 type ToolListUpdateData struct {
@@ -16,27 +16,27 @@ type ToolListUpdateData struct {
 }
 
 type ToolCallData struct {
-	RequestUUID  uuid.UUID
-	ToolCallUUID uuid.UUID
+	RequestID  types.RequestID
+	ToolCallID types.ToolCallID
 	ToolName     string
 	Parameters   map[string]any
 }
 
 type ToolResultData struct {
-	RequestUUID  uuid.UUID
-	ToolCallUUID uuid.UUID
+	RequestID  types.RequestID
+	ToolCallID types.ToolCallID
 	ToolResult   string
 }
 
 type ToolRawResultData struct {
-	RequestUUID  uuid.UUID
-	ToolCallUUID uuid.UUID
+	RequestID  types.RequestID
+	ToolCallID types.ToolCallID
 	Result       *mcp.CallToolResult
 }
 
 type ToolUseReportData struct {
-	RequestUUID  uuid.UUID
-	ToolCallUUID uuid.UUID
+	RequestID  types.RequestID
+	ToolCallID types.ToolCallID
 	ToolInfo     string
 	ToolStatus   constants.ToolStatus
 }

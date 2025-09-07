@@ -5,23 +5,26 @@ import (
 	"DevCode/src/dto"
 	"DevCode/src/events"
 	"time"
+
+	"go.uber.org/zap"
 )
 
-func NewMessageService(bus *events.EventBus) *MessageService {
-	service := &MessageService{bus: bus}
+func NewMessageService(bus *events.EventBus, logger *zap.Logger) *MessageService {
+	service := &MessageService{bus: bus, logger: logger}
 	service.Subscribe()
 	return service
 }
 
 type MessageService struct {
-	bus *events.EventBus
+	bus    *events.EventBus
+	logger *zap.Logger
 }
 
 func (instance *MessageService) Subscribe() {
 	instance.bus.StreamStartEvent.Subscribe(constants.MessageService, func(event events.Event[dto.StreamStartData]) {
 		instance.bus.StreamChunkParsedEvent.Publish(events.Event[dto.ParsedChunkData]{
 			Data: dto.ParsedChunkData{
-				RequestUUID: event.Data.RequestUUID,
+				RequestID: event.Data.RequestID,
 				Content:     "",
 				IsComplete:  false,
 			},
@@ -33,9 +36,12 @@ func (instance *MessageService) Subscribe() {
 		instance.ParsingMessage(event.Data)
 	})
 	instance.bus.StreamErrorEvent.Subscribe(constants.MessageService, func(event events.Event[dto.StreamErrorData]) {
+		instance.logger.Error("Stream error occurred",
+			zap.String("request_uuid", event.Data.RequestID.String()),
+			zap.String("error", event.Data.Error.Error()))
 		instance.bus.StreamChunkParsedErrorEvent.Publish(events.Event[dto.ParsedChunkErrorData]{
 			Data: dto.ParsedChunkErrorData{
-				RequestUUID: event.Data.RequestUUID,
+				RequestID: event.Data.RequestID,
 				Error:       event.Data.Error.Error(),
 			},
 			TimeStamp: time.Now(),
@@ -45,7 +51,7 @@ func (instance *MessageService) Subscribe() {
 	instance.bus.StreamCompleteEvent.Subscribe(constants.MessageService, func(event events.Event[dto.StreamCompleteData]) {
 		instance.bus.StreamChunkParsedEvent.Publish(events.Event[dto.ParsedChunkData]{
 			Data: dto.ParsedChunkData{
-				RequestUUID: event.Data.RequestUUID,
+				RequestID: event.Data.RequestID,
 				Content:     event.Data.FinalMessage,
 				IsComplete:  event.Data.IsComplete,
 			},
@@ -55,14 +61,10 @@ func (instance *MessageService) Subscribe() {
 	})
 }
 
-func (instance *MessageService) GetID() constants.Source {
-	return constants.MessageService
-}
-
 func (instance *MessageService) ParsingMessage(data dto.StreamChunkData) {
 	instance.bus.StreamChunkParsedEvent.Publish(events.Event[dto.ParsedChunkData]{
 		Data: dto.ParsedChunkData{
-			RequestUUID: data.RequestUUID,
+			RequestID: data.RequestID,
 			Content:     data.Content,
 			IsComplete:  false,
 		},

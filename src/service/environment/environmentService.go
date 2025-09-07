@@ -5,13 +5,12 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
+	"DevCode/src/types"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -42,10 +41,10 @@ func (instance *EnvironmentService) Subscribe() {
 func (instance *EnvironmentService) readCWD() string {
 	cwd, err := os.Getwd()
 	if err != nil {
-		instance.logger.Warn("",zap.Error(devcodeerror.Wrap(
-				err,
-				devcodeerror.FailReadEnvironment,
-				"Fail to Read Cwd",
+		instance.logger.Warn("", zap.Error(devcodeerror.Wrap(
+			err,
+			devcodeerror.FailReadEnvironment,
+			"Fail to Read Cwd",
 		)))
 		cwd = Backup
 	}
@@ -55,10 +54,10 @@ func (instance *EnvironmentService) readCWD() string {
 
 func (instance *EnvironmentService) checkGit(cwd string) bool {
 	cmd := exec.Command("git", "-C", cwd, "rev-parse", "--git-dir")
-	if gitErr := cmd.Run() ; gitErr != nil {
-		instance.logger.Warn("",zap.Error(devcodeerror.Wrap(gitErr,devcodeerror.FailReadEnvironment,"Fail run git cmd")))
+	if gitErr := cmd.Run(); gitErr != nil {
+		instance.logger.Warn("", zap.Error(devcodeerror.Wrap(gitErr, devcodeerror.FailReadEnvironment, "Fail run git cmd")))
 		return false
-	} 
+	}
 	return true
 }
 
@@ -67,7 +66,7 @@ func (instance *EnvironmentService) checkVersion() string {
 	cmd := exec.Command("uname", "-r")
 	result, err := cmd.Output()
 	if err != nil {
-		instance.logger.Warn("",zap.Error(devcodeerror.Wrap(err,devcodeerror.FailReadEnvironment,"Fail run uname cmd")))
+		instance.logger.Warn("", zap.Error(devcodeerror.Wrap(err, devcodeerror.FailReadEnvironment, "Fail run uname cmd")))
 		version = Backup
 	} else {
 		version = strings.TrimSpace(string(result))
@@ -79,17 +78,9 @@ func (instance *EnvironmentService) UpdateEnvironmentInfo() {
 	cwd := instance.readCWD()
 	git := instance.checkGit(cwd)
 	version := instance.checkVersion()
-	instance.logger.Info(
-		"Running App Environment",
-		zap.Bool("Isgit", git),
-		zap.String("cwd", cwd),
-		zap.String("os", runtime.GOOS),
-		zap.String("version", version),
-	)
-	instance.logger.Debug("Publish Event", zap.String("Source", constants.EnvironmentService.String()))
 	instance.bus.UpdateEnvironmentEvent.Publish(events.Event[dto.EnvironmentUpdateData]{
 		Data: dto.EnvironmentUpdateData{
-			CreateUUID:         uuid.New(),
+			CreateID:       	types.NewCreateID(),
 			Cwd:                cwd,
 			OS:                 runtime.GOOS,
 			OSVersion:          version,

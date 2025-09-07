@@ -18,7 +18,7 @@ require (
 	//setting
 	github.com/spf13/viper v1.20.1
 	//log
-	go.uber.org/zap v1.27.0 
+	go.uber.org/zap v1.27.0
 )
 
 require (

@@ -5,41 +5,34 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
+	"DevCode/src/types"
 	"context"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 	"github.com/ollama/ollama/api"
 )
 
 func NewStreamManager(config config.OllamaServiceConfig) *StreamManager {
 	return &StreamManager{
-		ctxs:          make(map[uuid.UUID]context.Context, config.DefaultActiveStreamSize),
-		activeStreams: make(map[uuid.UUID]context.CancelFunc, config.DefaultActiveStreamSize),
+		ctxs:          make(map[types.RequestID]context.Context, config.DefaultActiveStreamSize),
+		activeStreams: make(map[types.RequestID]context.CancelFunc, config.DefaultActiveStreamSize),
 		buffer:        "",
 	}
 }
 
 type StreamManager struct {
-	ctxs          map[uuid.UUID]context.Context
-	activeStreams map[uuid.UUID]context.CancelFunc
+	ctxs          map[types.RequestID]context.Context
+	activeStreams map[types.RequestID]context.CancelFunc
 	streamMutex   sync.RWMutex
 	buffer        string
 	config        config.OllamaServiceConfig
 }
 
-func (instance *StreamManager) StartStream(ollama *api.Client, bus *events.EventBus, requestUUID uuid.UUID, model string, tools []api.Tool, message []api.Message, CallBack func(requestUUID uuid.UUID, response api.ChatResponse) error) {
+func (instance *StreamManager) StartStream(ollama *api.Client, bus *events.EventBus, requestID types.RequestID, model string, tools []api.Tool, message []api.Message, CallBack func(requestID types.RequestID, response api.ChatResponse) error) {
 	instance.streamMutex.Lock()
-	if instance.ctxs == nil {
-		instance.ctxs = make(map[uuid.UUID]context.Context, instance.config.DefaultActiveStreamSize)
-	}
-	instance.ctxs[requestUUID] = context.Background()
-	ctx, cancel := context.WithCancel(instance.ctxs[requestUUID])
-	if instance.activeStreams == nil {
-		instance.activeStreams = make(map[uuid.UUID]context.CancelFunc, instance.config.DefaultActiveStreamSize)
-	}
-	instance.activeStreams[requestUUID] = cancel
+	instance.ctxs[requestID] = context.Background()
+	ctx, cancel := context.WithCancel(instance.ctxs[requestID])
+	instance.activeStreams[requestID] = cancel
 	instance.streamMutex.Unlock()
 
 	request := api.ChatRequest{
@@ -53,18 +46,18 @@ func (instance *StreamManager) StartStream(ollama *api.Client, bus *events.Event
 			instance.streamMutex.Lock()
 			defer instance.streamMutex.Unlock()
 
-			delete(instance.activeStreams, requestUUID)
-			delete(instance.ctxs, requestUUID)
+			delete(instance.activeStreams, requestID)
+			delete(instance.ctxs, requestID)
 		}()
 
 		err := ollama.Chat(ctx, &request, func(cr api.ChatResponse) error {
-			return CallBack(requestUUID, cr)
+			return CallBack(requestID, cr)
 		})
 
 		if err != nil {
 			bus.StreamErrorEvent.Publish(events.Event[dto.StreamErrorData]{
 				Data: dto.StreamErrorData{
-					RequestUUID: requestUUID,
+					RequestID: requestID,
 					Error:       err,
 				},
 				TimeStamp: time.Now(),
@@ -74,11 +67,11 @@ func (instance *StreamManager) StartStream(ollama *api.Client, bus *events.Event
 	}()
 }
 
-func (instance *StreamManager) Response(requestUUID uuid.UUID, response api.ChatResponse, bus *events.EventBus, doneCallBack func(string), CheckDone func(uuid.UUID) bool, toolsCallBack func(uuid.UUID, []api.ToolCall)) error {
+func (instance *StreamManager) Response(requestID types.RequestID, response api.ChatResponse, bus *events.EventBus, doneCallBack func(string), CheckDone func(types.RequestID) bool, toolsCallBack func(types.RequestID, []api.ToolCall)) error {
 	if response.Message.Content != "" {
 		bus.StreamChunkEvent.Publish(events.Event[dto.StreamChunkData]{
 			Data: dto.StreamChunkData{
-				RequestUUID: requestUUID,
+				RequestID: requestID,
 				Content:     response.Message.Content,
 				IsComplete:  response.Done,
 			},
@@ -90,9 +83,9 @@ func (instance *StreamManager) Response(requestUUID uuid.UUID, response api.Chat
 	if response.Done {
 		bus.StreamCompleteEvent.Publish(events.Event[dto.StreamCompleteData]{
 			Data: dto.StreamCompleteData{
-				RequestUUID:  requestUUID,
+				RequestID:  requestID,
 				FinalMessage: response.Message.Content,
-				IsComplete:   !CheckDone(requestUUID),
+				IsComplete:   !CheckDone(requestID),
 			},
 			TimeStamp: time.Now(),
 			Source:    constants.LLMService,
@@ -101,21 +94,18 @@ func (instance *StreamManager) Response(requestUUID uuid.UUID, response api.Chat
 		instance.buffer = ""
 	}
 	if len(response.Message.ToolCalls) > 0 {
-		toolsCallBack(requestUUID, response.Message.ToolCalls)
+		toolsCallBack(requestID, response.Message.ToolCalls)
 	}
 	return nil
 }
 
-func (instance *StreamManager) CancelStream(requestUUID uuid.UUID) {
+func (instance *StreamManager) CancelStream(requestID types.RequestID) {
 	instance.streamMutex.Lock()
 	defer instance.streamMutex.Unlock()
-	if instance.activeStreams == nil {
-		return
-	}
-	cancel, exists := instance.activeStreams[requestUUID]
+	cancel, exists := instance.activeStreams[requestID]
 	if exists {
 		cancel()
 	}
-	delete(instance.activeStreams, requestUUID)
-	delete(instance.ctxs, requestUUID)
+	delete(instance.activeStreams,requestID)
+	delete(instance.ctxs, requestID)
 }

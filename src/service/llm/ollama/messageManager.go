@@ -16,7 +16,7 @@ const (
 	Assistant = "assistant"
 	Tool      = "tool"
 	System    = "system"
-	User      = "User"
+	User      = "user"
 )
 
 func NewMessageManager(config config.OllamaServiceConfig) *MessageManager {

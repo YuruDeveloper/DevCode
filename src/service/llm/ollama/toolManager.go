@@ -2,21 +2,20 @@ package ollama
 
 import (
 	"DevCode/src/config"
+	"DevCode/src/types"
 	"sync"
-
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ollama/ollama/api"
 )
 
 type RequestContext struct {
-	ToolCalls map[uuid.UUID]string
+	ToolCalls map[types.ToolCallID]string
 }
 
 func NewToolManager(config config.OllamaServiceConfig) *ToolManager {
 	return &ToolManager{
 		tools:           make([]api.Tool, 0, config.DefaultToolSize),
-		requestContents: make(map[uuid.UUID]*RequestContext, config.DefaultRequestContentsSize),
+		requestContents: make(map[types.RequestID]*RequestContext, config.DefaultRequestContentsSize),
 		config:          config,
 	}
 }
@@ -24,7 +23,7 @@ func NewToolManager(config config.OllamaServiceConfig) *ToolManager {
 type ToolManager struct {
 	config          config.OllamaServiceConfig
 	tools           []api.Tool
-	requestContents map[uuid.UUID]*RequestContext
+	requestContents map[types.RequestID]*RequestContext
 	requestMutex    sync.RWMutex
 }
 
@@ -49,54 +48,48 @@ func (instance *ToolManager) GetToolList() []api.Tool {
 	return instance.tools
 }
 
-func (instance *ToolManager) RegisterToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID, toolName string) {
+func (instance *ToolManager) RegisterToolCall(requestID types.RequestID, toolCallID types.ToolCallID, toolName string) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
-	if instance.requestContents == nil {
-		instance.requestContents = make(map[uuid.UUID]*RequestContext, instance.config.DefaultRequestContentsSize)
-	}
-	if content, exists := instance.requestContents[requestUUID]; exists {
-		if content.ToolCalls == nil {
-			content.ToolCalls = make(map[uuid.UUID]string, instance.config.DefaultToolCallSize)
-		}
-		content.ToolCalls[toolCallUUID] = toolName
+	if content, exists := instance.requestContents[requestID]; exists {
+		content.ToolCalls[toolCallID] = toolName
 	} else {
-		instance.requestContents[requestUUID] = &RequestContext{
-			ToolCalls: make(map[uuid.UUID]string, instance.config.DefaultToolCallSize),
+		instance.requestContents[types.RequestID(toolCallID)] = &RequestContext{
+			ToolCalls: make(map[types.ToolCallID]string, instance.config.DefaultToolCallSize),
 		}
-		instance.requestContents[requestUUID].ToolCalls[toolCallUUID] = toolName
+		instance.requestContents[requestID].ToolCalls[toolCallID] = toolName
 	}
 }
 
-func (instance *ToolManager) HasToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID) bool {
+func (instance *ToolManager) HasToolCall(requestID types.RequestID, toolCallID types.ToolCallID) bool {
 	instance.requestMutex.RLock()
 	defer instance.requestMutex.RUnlock()
-	if content, exists := instance.requestContents[requestUUID]; exists {
+	if content, exists := instance.requestContents[requestID]; exists {
 		if content.ToolCalls == nil {
 			return false
 		}
-		if _, exists := content.ToolCalls[toolCallUUID]; exists {
+		if _, exists := content.ToolCalls[toolCallID]; exists {
 			return true
 		}
 	}
 	return false
 }
 
-func (instance *ToolManager) CompleteToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID) {
+func (instance *ToolManager) CompleteToolCall(requestID types.RequestID, toolCallID types.ToolCallID) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
-	if content, exists := instance.requestContents[requestUUID]; exists {
+	if content, exists := instance.requestContents[requestID]; exists {
 		if content.ToolCalls == nil {
 			return
 		}
-		delete(content.ToolCalls, toolCallUUID)
+		delete(content.ToolCalls, toolCallID)
 	}
 }
 
-func (instance *ToolManager) HasPendingCalls(requestUUID uuid.UUID) bool {
+func (instance *ToolManager) HasPendingCalls(requestID types.RequestID) bool {
 	instance.requestMutex.RLock()
 	defer instance.requestMutex.RUnlock()
-	if content, exists := instance.requestContents[requestUUID]; exists {
+	if content, exists := instance.requestContents[requestID]; exists {
 		if content.ToolCalls == nil {
 			return false
 		}
@@ -105,8 +98,8 @@ func (instance *ToolManager) HasPendingCalls(requestUUID uuid.UUID) bool {
 	return false
 }
 
-func (instance *ToolManager) ClearRequest(requestUUID uuid.UUID) {
+func (instance *ToolManager) ClearRequest(requestID types.RequestID) {
 	instance.requestMutex.Lock()
 	defer instance.requestMutex.Unlock()
-	delete(instance.requestContents, requestUUID)
+	delete(instance.requestContents, requestID)
 }

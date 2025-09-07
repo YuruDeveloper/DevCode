@@ -1,14 +1,16 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"DevCode/src/types"
+)
 
 type ParsedChunkData struct {
-	RequestUUID uuid.UUID
+	RequestID types.RequestID
 	Content     string
 	IsComplete  bool
 }
 
 type ParsedChunkErrorData struct {
-	RequestUUID uuid.UUID
+	RequestID types.RequestID
 	Error       string
 }

@@ -2,7 +2,7 @@ package ollama
 
 import (
 	"DevCode/src/events"
-	"github.com/google/uuid"
+	"DevCode/src/types"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ollama/ollama/api"
 )
@@ -20,30 +20,30 @@ type IMessageManager interface {
 type IToolManager interface {
 	RegisterToolList(tools []*mcp.Tool)
 	GetToolList() []api.Tool
-	RegisterToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID, toolName string)
-	HasToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID) bool
-	CompleteToolCall(requestUUID uuid.UUID, toolCallUUID uuid.UUID)
-	HasPendingCalls(requestUUID uuid.UUID) bool
-	ClearRequest(requestUUID uuid.UUID)
+	RegisterToolCall(requestID types.RequestID, toolCallID types.ToolCallID, toolName string)
+	HasToolCall(requestID types.RequestID, toolCallID types.ToolCallID) bool
+	CompleteToolCall(requestID types.RequestID, toolCallID types.ToolCallID)
+	HasPendingCalls(requestID types.RequestID) bool
+	ClearRequest(requestID types.RequestID)
 }
 
 type IStreamManager interface {
 	StartStream(
 		ollama *api.Client,
 		bus *events.EventBus,
-		requestUUID uuid.UUID,
+		requestID types.RequestID,
 		model string,
 		tools []api.Tool,
 		message []api.Message,
-		callBack func(requestUUID uuid.UUID, response api.ChatResponse) error,
+		callBack func(requestID types.RequestID, response api.ChatResponse) error,
 	)
 	Response(
-		requestUUID uuid.UUID,
+		requestID types.RequestID,
 		response api.ChatResponse,
 		bus *events.EventBus,
 		doneCallBack func(string),
-		checkDone func(uuid.UUID) bool,
-		toolsCallBack func(uuid.UUID, []api.ToolCall),
+		checkDone func(types.RequestID) bool,
+		toolsCallBack func(types.RequestID, []api.ToolCall),
 	) error
-	CancelStream(requestUUID uuid.UUID)
+	CancelStream(requestUUID types.RequestID)
 }
