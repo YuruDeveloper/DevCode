@@ -5,13 +5,14 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
+	"DevCode/src/types"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 type MockUserInputHandler struct {
@@ -39,7 +40,8 @@ func (m *MockUserInputHandler) GetReceivedEvents() []events.Event[dto.UserReques
 
 func TestNewEventBus(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	eventBus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	eventBus, err := events.NewEventBus(eventBusConfig, logger)
 
 	require.NoError(t, err)
 	assert.NotNil(t, eventBus)
@@ -48,19 +50,20 @@ func TestNewEventBus(t *testing.T) {
 
 func TestEventBus_UserInputEvent_Subscribe_And_Publish(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	eventBus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	eventBus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer eventBus.Close()
 
 	handler := NewMockUserInputHandler()
 	eventBus.UserInputEvent.Subscribe(constants.Model, handler.HandleEvent)
 
-	testUUID := uuid.New()
-	sessionUUID := uuid.New()
+	testUUID := types.NewRequestID()
+	sessionUUID := types.NewSessionID()
 	testEvent := events.Event[dto.UserRequestData]{
 		Data: dto.UserRequestData{
-			SessionUUID: sessionUUID,
-			RequestUUID: testUUID,
+			SessionID: sessionUUID,
+			RequestID: testUUID,
 			Message:     "test message",
 		},
 		TimeStamp: time.Now(),
@@ -73,25 +76,26 @@ func TestEventBus_UserInputEvent_Subscribe_And_Publish(t *testing.T) {
 	receivedEvents := handler.GetReceivedEvents()
 	require.Len(t, receivedEvents, 1)
 	assert.Equal(t, "test message", receivedEvents[0].Data.Message)
-	assert.Equal(t, testUUID, receivedEvents[0].Data.RequestUUID)
-	assert.Equal(t, sessionUUID, receivedEvents[0].Data.SessionUUID)
+	assert.Equal(t, testUUID, receivedEvents[0].Data.RequestID)
+	assert.Equal(t, sessionUUID, receivedEvents[0].Data.SessionID)
 }
 
 func TestEventBus_UserInputEvent_UnSubscribe(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	eventBus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	eventBus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer eventBus.Close()
 
 	handler := NewMockUserInputHandler()
 	eventBus.UserInputEvent.Subscribe(constants.Model, handler.HandleEvent)
 
-	testUUID := uuid.New()
-	sessionUUID := uuid.New()
+	testUUID := types.NewRequestID()
+	sessionUUID := types.NewSessionID()
 	testEvent := events.Event[dto.UserRequestData]{
 		Data: dto.UserRequestData{
-			SessionUUID: sessionUUID,
-			RequestUUID: testUUID,
+			SessionID: sessionUUID,
+			RequestID: testUUID,
 			Message:     "test message",
 		},
 		TimeStamp: time.Now(),
@@ -111,7 +115,8 @@ func TestEventBus_UserInputEvent_UnSubscribe(t *testing.T) {
 
 func TestEventBus_UserInputEvent_MultipleSubscribers(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	eventBus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	eventBus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer eventBus.Close()
 
@@ -121,12 +126,12 @@ func TestEventBus_UserInputEvent_MultipleSubscribers(t *testing.T) {
 	eventBus.UserInputEvent.Subscribe(constants.Model, handler1.HandleEvent)
 	eventBus.UserInputEvent.Subscribe(constants.LLMService, handler2.HandleEvent)
 
-	testUUID := uuid.New()
-	sessionUUID := uuid.New()
+	testUUID := types.NewRequestID()
+	sessionUUID := types.NewSessionID()
 	testEvent := events.Event[dto.UserRequestData]{
 		Data: dto.UserRequestData{
-			SessionUUID: sessionUUID,
-			RequestUUID: testUUID,
+			SessionID: sessionUUID,
+			RequestID: testUUID,
 			Message:     "broadcast test",
 		},
 		TimeStamp: time.Now(),
@@ -142,14 +147,15 @@ func TestEventBus_UserInputEvent_MultipleSubscribers(t *testing.T) {
 	for _, handler := range []*MockUserInputHandler{handler1, handler2} {
 		receivedEvents := handler.GetReceivedEvents()
 		assert.Equal(t, "broadcast test", receivedEvents[0].Data.Message)
-		assert.Equal(t, testUUID, receivedEvents[0].Data.RequestUUID)
-		assert.Equal(t, sessionUUID, receivedEvents[0].Data.SessionUUID)
+		assert.Equal(t, testUUID, receivedEvents[0].Data.RequestID)
+		assert.Equal(t, sessionUUID, receivedEvents[0].Data.SessionID)
 	}
 }
 
 func TestEventBus_UserInputEvent_HandlerPanic(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	eventBus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	eventBus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer eventBus.Close()
 
@@ -162,12 +168,12 @@ func TestEventBus_UserInputEvent_HandlerPanic(t *testing.T) {
 	eventBus.UserInputEvent.Subscribe(constants.Model, panicHandler)
 	eventBus.UserInputEvent.Subscribe(constants.LLMService, normalHandler.HandleEvent)
 
-	testUUID := uuid.New()
-	sessionUUID := uuid.New()
+	testUUID := types.NewRequestID()
+	sessionUUID := types.NewSessionID()
 	testEvent := events.Event[dto.UserRequestData]{
 		Data: dto.UserRequestData{
-			SessionUUID: sessionUUID,
-			RequestUUID: testUUID,
+			SessionID: sessionUUID,
+			RequestID: testUUID,
 			Message:     "panic test",
 		},
 		TimeStamp: time.Now(),
@@ -184,7 +190,8 @@ func TestEventBus_UserInputEvent_HandlerPanic(t *testing.T) {
 
 func TestEventBus_Close(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	eventBus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	eventBus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 
 	handler := NewMockUserInputHandler()

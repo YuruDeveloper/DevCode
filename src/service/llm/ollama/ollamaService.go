@@ -123,7 +123,7 @@ func (instance *OllamaService) CallApi(requestID types.RequestID) {
 
 func (instance *OllamaService) ProcessToolCalls(requestID types.RequestID, ToolCalls []api.ToolCall) {
 	for _, call := range ToolCalls {
-		toolCallID := types.NewTooCallID()
+		toolCallID := types.NewToolCallID()
 		instance.bus.ToolCallEvent.Publish(events.Event[dto.ToolCallData]{
 			Data: dto.ToolCallData{
 				RequestID:  requestID,

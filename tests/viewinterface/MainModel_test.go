@@ -5,29 +5,31 @@ import (
 	"DevCode/src/constants"
 	"DevCode/src/dto"
 	"DevCode/src/events"
+	"DevCode/src/types"
 	"DevCode/src/viewinterface"
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	assert.NoError(t, err, "EventBus 생성 실패")
 	viewConfig := config.ViewConfig{Dot: "●", SelectChar: ">"}
-	mainModel := viewinterface.NewMainModel(bus, viewConfig)
+	mainModel := viewinterface.NewMainModel(bus, viewConfig, logger)
 
-	// Tool 호출 UUID 생성
-	toolCallID := uuid.New()
+	// Tool 호출 ID 생성
+	toolCallID := types.NewToolCallID()
 	toolInfo := "테스트 툴"
 
 	// When: Tool Call 이벤트 발생 (Tool이 활성화됨)
 	callReportData := dto.ToolUseReportData{
-		ToolCallUUID:   toolCallID,
+		ToolCallID:   toolCallID,
 		ToolStatus: constants.Call,
 		ToolInfo:   toolInfo,
 	}
@@ -40,7 +42,7 @@ func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 
 	// When: Tool Error 이벤트 발생
 	errorReportData := dto.ToolUseReportData{
-		ToolCallUUID:   toolCallID,
+		ToolCallID:   toolCallID,
 		ToolStatus: constants.Error,
 		ToolInfo:   toolInfo,
 	}
@@ -61,17 +63,18 @@ func TestMainModel_ToolErrorDisplaysRedLight(t *testing.T) {
 func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	assert.NoError(t, err, "EventBus 생성 실패")
 	viewConfig := config.ViewConfig{Dot: "●", SelectChar: ">"}
-	mainModel := viewinterface.NewMainModel(bus, viewConfig)
+	mainModel := viewinterface.NewMainModel(bus, viewConfig, logger)
 
-	toolCallID := uuid.New()
+	toolCallID := types.NewToolCallID()
 	toolInfo := "이벤트 테스트 툴"
 
 	// Given: Tool Call 이벤트 직접 처리
 	callReportData := dto.ToolUseReportData{
-		ToolCallUUID:   toolCallID,
+		ToolCallID:   toolCallID,
 		ToolStatus: constants.Call,
 		ToolInfo:   toolInfo,
 	}
@@ -84,7 +87,7 @@ func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 
 	// When: Tool Error 이벤트 직접 처리
 	errorReportData := dto.ToolUseReportData{
-		ToolCallUUID:   toolCallID,
+		ToolCallID:   toolCallID,
 		ToolStatus: constants.Error,
 		ToolInfo:   toolInfo,
 	}
@@ -101,17 +104,18 @@ func TestMainModel_ToolErrorViaEventBus(t *testing.T) {
 func TestMainModel_ToolSuccessDisplaysGreenLight(t *testing.T) {
 	// Given: MainModel과 EventBus 초기화
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	assert.NoError(t, err, "EventBus 생성 실패")
 	viewConfig := config.ViewConfig{Dot: "●", SelectChar: ">"}
-	mainModel := viewinterface.NewMainModel(bus, viewConfig)
+	mainModel := viewinterface.NewMainModel(bus, viewConfig, logger)
 
-	toolCallID := uuid.New()
+	toolCallID := types.NewToolCallID()
 	toolInfo := "성공 테스트 툴"
 
 	// Tool Call 이벤트 처리
 	callReportData := dto.ToolUseReportData{
-		ToolCallUUID:   toolCallID,
+		ToolCallID:   toolCallID,
 		ToolStatus: constants.Call,
 		ToolInfo:   toolInfo,
 	}
@@ -119,7 +123,7 @@ func TestMainModel_ToolSuccessDisplaysGreenLight(t *testing.T) {
 
 	// When: Tool Success 이벤트 발생
 	successReportData := dto.ToolUseReportData{
-		ToolCallUUID:   toolCallID,
+		ToolCallID:   toolCallID,
 		ToolStatus: constants.Success,
 		ToolInfo:   toolInfo,
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 type MockEnvironmentUpdateHandler struct {
@@ -29,18 +30,20 @@ func (m *MockEnvironmentUpdateHandler) HandleEvent(event events.Event[dto.Enviro
 
 func TestNewEnvironmentService(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer bus.Close()
 
-	service := environment.NewEnvironmentService(bus)
+	service := environment.NewEnvironmentService(bus, logger)
 
 	assert.NotNil(t, service)
 }
 
 func TestEnvironmentService_HandleEvent_RequestEnvironmentEvent(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer bus.Close()
 
@@ -48,7 +51,7 @@ func TestEnvironmentService_HandleEvent_RequestEnvironmentEvent(t *testing.T) {
 	updateHandler := NewMockEnvironmentUpdateHandler()
 	bus.UpdateEnvironmentEvent.Subscribe(constants.Model, updateHandler.HandleEvent)
 
-	_ = environment.NewEnvironmentService(bus)
+	_ = environment.NewEnvironmentService(bus, logger)
 
 	// Request Environment 이벤트 발행
 	requestEvent := events.Event[dto.EnvironmentRequestData]{
@@ -70,7 +73,7 @@ func TestEnvironmentService_HandleEvent_RequestEnvironmentEvent(t *testing.T) {
 	assert.Equal(t, constants.EnvironmentService, publishedEvent.Source)
 
 	envData := publishedEvent.Data
-	assert.NotEmpty(t, envData.CreateUUID)
+	assert.NotEmpty(t, envData.CreateID)
 	assert.NotEmpty(t, envData.Cwd)
 	assert.NotEmpty(t, envData.OS)
 	assert.NotEmpty(t, envData.TodayDate)
@@ -82,14 +85,15 @@ func TestEnvironmentService_HandleEvent_RequestEnvironmentEvent(t *testing.T) {
 
 func TestEnvironmentService_EnvironmentData_UniqueUUIDs(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer bus.Close()
 
 	updateHandler := NewMockEnvironmentUpdateHandler()
 	bus.UpdateEnvironmentEvent.Subscribe(constants.Model, updateHandler.HandleEvent)
 
-	_ = environment.NewEnvironmentService(bus)
+	_ = environment.NewEnvironmentService(bus, logger)
 
 	// 두 번의 환경 정보 요청
 	for i := 0; i < 2; i++ {
@@ -115,19 +119,20 @@ func TestEnvironmentService_EnvironmentData_UniqueUUIDs(t *testing.T) {
 	assert.Equal(t, envData1.TodayDate, envData2.TodayDate)
 
 	// UUID는 다르게 생성되어야 함
-	assert.NotEqual(t, envData1.CreateUUID, envData2.CreateUUID)
+	assert.NotEqual(t, envData1.CreateID, envData2.CreateID)
 }
 
 func TestEnvironmentService_EnvironmentData_Consistency(t *testing.T) {
 	eventBusConfig := config.EventBusConfig{PoolSize: 100}
-	bus, err := events.NewEventBus(eventBusConfig)
+	logger := zap.NewNop()
+	bus, err := events.NewEventBus(eventBusConfig, logger)
 	require.NoError(t, err)
 	defer bus.Close()
 
 	updateHandler := NewMockEnvironmentUpdateHandler()
 	bus.UpdateEnvironmentEvent.Subscribe(constants.Model, updateHandler.HandleEvent)
 
-	_ = environment.NewEnvironmentService(bus)
+	_ = environment.NewEnvironmentService(bus, logger)
 
 	requestEvent := events.Event[dto.EnvironmentRequestData]{
 		Data:      dto.EnvironmentRequestData{},
