@@ -5,7 +5,7 @@ import (
 )
 
 type ToolManager interface {
-	IsPedding() bool
+	IsPending() bool
 	ChangedActiveTool() []*ActiveTool
 	Select(selectIndex int)
 	Quit()

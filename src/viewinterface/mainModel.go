@@ -56,6 +56,7 @@ func NewMainModel(bus *events.EventBus, config config.ViewConfig, logger *zap.Lo
 		Config:      config,
 		logger:      logger,
 		toolManager: toolManager,
+		toolModels: make(map[types.ToolCallID]*ToolModel,10),
 	}
 	model.SelectModel.SelectCallBack = model.toolManager.Select
 	model.SelectModel.QuitCallBack = model.toolManager.Quit
@@ -101,7 +102,7 @@ func (instance *MainModel) Subscribe() {
 			})
 		}
 	})
-	instance.Bus.UpdaetUserStatusEvent.Subscribe(constants.Model, func(event events.Event[dto.UpdateUserStatusData]) {
+	instance.Bus.UpdateUserStatusEvent.Subscribe(constants.Model, func(event events.Event[dto.UpdateUserStatusData]) {
 		instance.Status = event.Data.Status
 	})
 	instance.Bus.UpdateViewEvent.Subscribe(constants.Model, func(event events.Event[dto.UpdateViewData]) {
@@ -190,7 +191,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if cmd != nil {
 		cmds = append(cmds, cmd)
 	}
-	if instance.toolManager.IsPedding() {
+	if instance.toolManager.IsPending() {
 		instance.Status = constants.ToolDecision
 		instance.SelectModel.Update(msg)
 	}

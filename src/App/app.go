@@ -30,7 +30,7 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	manager := toolManager.MewToolManager(bus, logger)
+	manager := toolManager.NewToolManager(bus, logger)
 	app := &App{
 		bus:                bus,
 		toolManager:        manager,

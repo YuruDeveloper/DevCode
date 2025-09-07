@@ -5,12 +5,13 @@ import (
 	"DevCode/src/dto"
 	"DevCode/src/events"
 	"DevCode/src/types"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-func MewToolManager(bus *events.EventBus, logger *zap.Logger) *ToolManager {
+func NewToolManager(bus *events.EventBus, logger *zap.Logger) *ToolManager {
 	return &ToolManager{
 		bus:               bus,
 		logger:            logger,
@@ -26,17 +27,21 @@ type ToolManager struct {
 	activeTools       map[types.ToolCallID]*types.ActiveTool
 	pendingToolStack  []*types.PendingTool
 	changedActiveTool []*types.ActiveTool
+	mutex sync.Mutex
 }
 
 func (instance *ToolManager) Subscribe() {
-	instance.bus.ToolUseReportEvent.Subscribe(constants.ToolManager, instance.ProsessReportEvent)
-	instance.bus.RequestToolUseEvent.Subscribe(constants.ToolManager, instance.ProsessRequestEvent)
+	instance.bus.ToolUseReportEvent.Subscribe(constants.ToolManager, instance.ProcessReportEvent)
+	instance.bus.RequestToolUseEvent.Subscribe(constants.ToolManager, instance.ProcessRequestEvent)
 }
 
-func (instance *ToolManager) ProsessRequestEvent(event events.Event[dto.ToolUseReportData]) {
+func (instance *ToolManager) ProcessRequestEvent(event events.Event[dto.ToolUseReportData]) {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+
 	instance.pendingToolStack = append(instance.pendingToolStack, &types.PendingTool{RequestID: event.Data.RequestID, ToolCallID: event.Data.ToolCallID})
 	if len(instance.pendingToolStack) == 1 {
-		instance.bus.UpdaetUserStatusEvent.Publish(events.Event[dto.UpdateUserStatusData]{
+		instance.bus.UpdateUserStatusEvent.Publish(events.Event[dto.UpdateUserStatusData]{
 			Data: dto.UpdateUserStatusData{
 				Status: constants.ToolDecision,
 			},
@@ -44,10 +49,13 @@ func (instance *ToolManager) ProsessRequestEvent(event events.Event[dto.ToolUseR
 			Source:    constants.ToolManager,
 		})
 	}
-	instance.ProsessReportEvent(event)
+	instance.ProcessReportEvent(event)
 }
 
-func (instance *ToolManager) ProsessReportEvent(event events.Event[dto.ToolUseReportData]) {
+func (instance *ToolManager) ProcessReportEvent(event events.Event[dto.ToolUseReportData]) {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+
 	if activeTool, exists := instance.activeTools[event.Data.ToolCallID]; exists {
 		if activeTool.ToolStatus != event.Data.ToolStatus || activeTool.ToolInfo != event.Data.ToolInfo {
 			delete(instance.activeTools, event.Data.ToolCallID)
@@ -77,7 +85,7 @@ func (instance *ToolManager) PublishUpdateView() {
 	})
 }
 
-func (instance *ToolManager) IsPedding() bool {
+func (instance *ToolManager) IsPending() bool {
 	return len(instance.pendingToolStack) != 0
 }
 
@@ -89,6 +97,9 @@ func (instance *ToolManager) ChangedActiveTool() []*types.ActiveTool {
 }
 
 func (instance *ToolManager) Select(selectIndex int) {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+
 	accept := selectIndex == 0
 	instance.bus.UserDecisionEvent.Publish(
 		events.Event[dto.UserDecisionData]{
@@ -106,6 +117,9 @@ func (instance *ToolManager) Select(selectIndex int) {
 }
 
 func (instance *ToolManager) Quit() {
+	instance.mutex.Lock()
+	defer instance.mutex.Unlock()
+	
 	instance.bus.UserDecisionEvent.Publish(
 		events.Event[dto.UserDecisionData]{
 			Data: dto.UserDecisionData{
@@ -123,7 +137,7 @@ func (instance *ToolManager) Quit() {
 
 func (instance *ToolManager) checkPeddingToolStack() {
 	if len(instance.pendingToolStack) == 0 {
-		instance.bus.UpdaetUserStatusEvent.Publish(events.Event[dto.UpdateUserStatusData]{
+		instance.bus.UpdateUserStatusEvent.Publish(events.Event[dto.UpdateUserStatusData]{
 			Data: dto.UpdateUserStatusData{
 				Status: constants.AssistantInput,
 			},
