@@ -24,6 +24,7 @@ func NewMessageManager(config config.OllamaServiceConfig) *MessageManager {
 		systemMessages:     make([]api.Message, 0, config.DefaultSystemMessageLength),
 		environmentMessage: api.Message{},
 		messages:           make([]api.Message, 0, config.MessageLimit+1),
+		config:             config,
 	}
 }
 

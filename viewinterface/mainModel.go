@@ -86,7 +86,7 @@ func (instance *MainModel) SetProgram(program *tea.Program) {
 }
 
 func (instance *MainModel) Subscribe() {
-	events.Subscribe(instance.Bus,instance.Bus.StreamChunkParsedEvent,constants.Model,func(event events.Event[dto.ParsedChunkData]) {
+	events.Subscribe(instance.Bus, instance.Bus.StreamChunkParsedEvent, constants.Model, func(event events.Event[dto.ParsedChunkData]) {
 		if event.Data.RequestID == instance.MessageID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
 				Content:    event.Data.Content,
@@ -94,7 +94,7 @@ func (instance *MainModel) Subscribe() {
 			})
 		}
 	})
-	events.Subscribe(instance.Bus,instance.Bus.StreamChunkParsedErrorEvent,constants.Model,func(event events.Event[dto.ParsedChunkErrorData]) {
+	events.Subscribe(instance.Bus, instance.Bus.StreamChunkParsedErrorEvent, constants.Model, func(event events.Event[dto.ParsedChunkErrorData]) {
 		if event.Data.RequestID == instance.MessageID && instance.Program != nil {
 			instance.Program.Send(StreamUpdate{
 				Content:    event.Data.Error,
@@ -102,10 +102,10 @@ func (instance *MainModel) Subscribe() {
 			})
 		}
 	})
-	events.Subscribe(instance.Bus,instance.Bus.UpdateUserStatusEvent,constants.Model,func(event events.Event[dto.UpdateUserStatusData]) {
+	events.Subscribe(instance.Bus, instance.Bus.UpdateUserStatusEvent, constants.Model, func(event events.Event[dto.UpdateUserStatusData]) {
 		instance.Status = event.Data.Status
 	})
-	events.Subscribe(instance.Bus,instance.Bus.UpdateViewEvent,constants.Model,func(event events.Event[dto.UpdateViewData]) {
+	events.Subscribe(instance.Bus, instance.Bus.UpdateViewEvent, constants.Model, func(event events.Event[dto.UpdateViewData]) {
 		instance.Program.Send(event.Data)
 	})
 }
@@ -128,7 +128,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if instance.Status == constants.UserInput {
 				instance.MessageID = types.NewRequestID()
 				userMessage := instance.InputPort.Value()
-				events.Publish(instance.Bus,instance.Bus.UserInputEvent,
+				events.Publish(instance.Bus, instance.Bus.UserInputEvent,
 					events.Event[dto.UserRequestData]{
 						Data: dto.UserRequestData{
 							SessionID: instance.SessionID,
@@ -145,7 +145,7 @@ func (instance *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			instance.InputPort.Reset()
 			return instance, cmd
 		case key.Matches(msg, instance.Keys.Cancel) && instance.Status != constants.ToolDecision:
-			events.Publish(instance.Bus,instance.Bus.StreamCancelEvent,events.Event[dto.StreamCancelData]{
+			events.Publish(instance.Bus, instance.Bus.StreamCancelEvent, events.Event[dto.StreamCancelData]{
 				Data: dto.StreamCancelData{
 					RequestID: instance.MessageID,
 				},

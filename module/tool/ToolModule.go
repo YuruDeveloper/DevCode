@@ -161,7 +161,7 @@ func (instance *ToolModule) ProcessToolCall(data dto.ToolCallData) {
 	})
 	for _, allowed := range instance.allowed {
 		if data.ToolName == allowed {
-			events.Publish(instance.bus,instance.bus.AcceptToolEvent,events.Event[dto.ToolCallData]{
+			events.Publish(instance.bus, instance.bus.AcceptToolEvent, events.Event[dto.ToolCallData]{
 				Data:      data,
 				TimeStamp: time.Now(),
 				Source:    constants.ToolModule,

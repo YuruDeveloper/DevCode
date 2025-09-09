@@ -12,13 +12,15 @@ import (
 )
 
 func NewToolManager(bus *events.EventBus, logger *zap.Logger) *ToolManager {
-	return &ToolManager{
+	manager := &ToolManager{
 		bus:               bus,
 		logger:            logger,
 		activeTools:       make(map[types.ToolCallID]*types.ActiveTool),
 		pendingToolStack:  make([]*types.PendingTool, 0, 5),
 		changedActiveTool: make([]*types.ActiveTool, 0, 10),
 	}
+	manager.Subscribe()
+	return manager
 }
 
 type ToolManager struct {
@@ -49,7 +51,8 @@ func (instance *ToolManager) ProcessRequestEvent(event events.Event[dto.ToolUseR
 			Source:    constants.ToolManager,
 		})
 	}
-	instance.ProcessReportEvent(event)
+	// ProcessReportEvent를 직접 호출하지 않고 이벤트로 발행하여 데드락 방지
+	events.Publish(instance.bus, instance.bus.ToolUseReportEvent, event)
 }
 
 func (instance *ToolManager) ProcessReportEvent(event events.Event[dto.ToolUseReportData]) {

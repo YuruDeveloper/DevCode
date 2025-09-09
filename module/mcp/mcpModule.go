@@ -1,4 +1,4 @@
- package mcp
+package mcp
 
 import (
 	devcodeerror "DevCode/DevCodeError"
@@ -65,10 +65,10 @@ func NewMcpModule(bus *events.EventBus, config config.McpServiceConfig, logger *
 }
 
 func (instance *McpModule) Subscribe() {
-	events.Subscribe(instance.bus,instance.bus.RequestToolListEvent,constants.McpModule,func(event events.Event[dto.RequestToolListData]) {
+	events.Subscribe(instance.bus, instance.bus.RequestToolListEvent, constants.McpModule, func(event events.Event[dto.RequestToolListData]) {
 		instance.PublishToolList()
 	})
-	events.Subscribe(instance.bus,instance.bus.AcceptToolEvent,constants.McpModule,func(event events.Event[dto.ToolCallData]) {
+	events.Subscribe(instance.bus, instance.bus.AcceptToolEvent, constants.McpModule, func(event events.Event[dto.ToolCallData]) {
 		instance.ToolCall(event.Data)
 	})
 }
@@ -103,7 +103,7 @@ func (instance *McpModule) ToolCall(data dto.ToolCallData) {
 			zap.String("requestUUID", data.RequestID.String()),
 			zap.String("toolCallUUID", data.ToolCallID.String()),
 			zap.Error(err))
-		events.Publish(instance.bus,instance.bus.ToolRawResultEvent,events.Event[dto.ToolRawResultData]{
+		events.Publish(instance.bus, instance.bus.ToolRawResultEvent, events.Event[dto.ToolRawResultData]{
 			Data: dto.ToolRawResultData{
 				RequestID:  data.RequestID,
 				ToolCallID: data.ToolCallID,
@@ -121,7 +121,7 @@ func (instance *McpModule) ToolCall(data dto.ToolCallData) {
 		})
 		return
 	}
-	events.Publish(instance.bus,instance.bus.ToolRawResultEvent,events.Event[dto.ToolRawResultData]{
+	events.Publish(instance.bus, instance.bus.ToolRawResultEvent, events.Event[dto.ToolRawResultData]{
 		Data: dto.ToolRawResultData{
 			RequestID:  data.RequestID,
 			ToolCallID: data.ToolCallID,
@@ -138,7 +138,7 @@ func (instance *McpModule) PublishToolList() {
 	for tool := range instance.clientSession.Tools(instance.ctx, nil) {
 		mcpToolList = append(mcpToolList, tool)
 	}
-	events.Publish(instance.bus,instance.bus.UpdateToolListEvent,events.Event[dto.ToolListUpdateData]{
+	events.Publish(instance.bus, instance.bus.UpdateToolListEvent, events.Event[dto.ToolListUpdateData]{
 		Data: dto.ToolListUpdateData{
 			List: mcpToolList,
 		},
