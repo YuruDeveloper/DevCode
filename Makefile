@@ -8,7 +8,7 @@ all: build
 # Build the project
 build:
 	@echo "Building..."
-	go build -o build/DevCode ./src
+	go build -o build/DevCode .
 
 # Clean build artifacts
 clean:
